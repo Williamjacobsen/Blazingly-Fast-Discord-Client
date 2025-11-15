@@ -1,4 +1,5 @@
 use futures_util::{SinkExt, StreamExt};
+use serde_json::json;
 use std::{env, error::Error, time::Duration};
 use tokio::sync::mpsc;
 use tokio_tungstenite::{
@@ -12,6 +13,8 @@ pub fn send_heartbeat(
 ) -> Result<(), Box<dyn Error>> {
     let interval = heartbeat_interval.unwrap();
     tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(interval)).await;
+
         loop {
             // TODO:
             // Send {"op": 1, "d": null}
@@ -79,7 +82,20 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
                 if let Some(heartbeat_interval) = Some(json["d"]["heartbeat_interval"].as_u64()) {
                     println!("Heartbeat interval: {}", heartbeat_interval.unwrap());
 
-                    // TODO: Send identity payload with intents (opcode 2)
+                    let identify = json!({
+                        "op": 2,
+                        "d": {
+                            "token": authorization_token,
+                            "properties": {
+                                "$os": std::env::consts::OS,
+                                "$browser": "blazingly-rust-discord-client",
+                                "$device": "blazingly-rust-discord-client"
+                            },
+                            "intents": 33281 // GUILDS + GUILD_MESSAGES + MESSAGE_CONTENT
+                        }
+                    });
+                    transmitter.send(Message::Text(identify.to_string().into()))?;
+                    println!("Sent IDENTIFY");
 
                     send_heartbeat(transmitter.clone(), heartbeat_interval)?;
                 }
@@ -87,11 +103,13 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    // This is just to keep the thread running...
     while let Some(message) = read.next().await {
         match message {
-            Ok(msg) => {
-                println!("Received: {:?}", msg);
+            Ok(message) => {
+                let log_entry = format!("Received: {:?}", message);
+                println!("{}", log_entry);
+
+                // Text(Utf8Bytes(b"{\"t\":\"MESSAGE_UPDATE\",\"s\":12,\"op\":0,\"d\":{\"type\":0,\"tts\":false,\"timestamp\":\"2025-11-15T16:57:35.201000+00:00\",\"pinned\":false,\"mentions\":[],\"mention_roles\":[],\"mention_everyone\":false,\"member\":{\"roles\":[\"854507461574262784\",\"904818008306905100\"],\"premium_since\":null,\"pending\":false,\"nick\":null,\"mute\":false,\"joined_at\":\"2021-11-01T19:43:43.978000+00:00\",\"flags\":0,\"deaf\":false,\"communication_disabled_until\":null,\"banner\":null,\"avatar\":null},\"id\":\"1439298298371379270\",\"flags\":0,\"embeds\":[{\"type\":\"rich\",\"title\":\"Guess the county\",\"image\":{\"width\":375,\"url\":\"https://gist.githubusercontent.com/GreenEyedBear/f4dfb4d911e284852edfde1b4614c27a/raw/d12547acef0b29ca8e0b1b83c9ea80f49de3c542/952677140443332749.png\",\"proxy_url\":\"https://images-ext-1.discordapp.net/external/-eGxu7A3hGzab0kak8MvR_MFM-jfJslbpCX5S2CnLTM/https/gist.githubusercontent.com/GreenEyedBear/f4dfb4d911e284852edfde1b4614c27a/raw/d12547acef0b29ca8e0b1b83c9ea80f49de3c542/952677140443332749.png\",\"placeholder_version\":1,\"placeholder\":\"+OeBCwIPNGvHCkYqDLGVAxASVHZTVmc=\",\"height\":722,\"flags\":0,\"content_type\":\"image/png\"},\"id\":\"1439298298371379271\",\"footer\":{\"text\":\"No image? Write `!pic`\"},\"content_scan_version\":2,\"color\":3918480}],\"edited_timestamp\":null,\"content\":\"\",\"components\":[{\"type\":1,\"id\":1,\"components\":[{\"type\":2,\"style\":2,\"label\":\"Skip question\",\"id\":2,\"custom_id\":\"efa52dd8ae9c20d25cc87a13f4ff6ee6\"}]}],\"channel_type\":0,\"channel_id\":\"1019630540049104926\",\"author\":{\"username\":\"MetaBot\",\"public_flags\":0,\"primary_guild\":null,\"id\":\"904794678686269480\",\"global_name\":null,\"display_name_styles\":null,\"discriminator\":\"1693\",\"collectibles\":null,\"clan\":null,\"bot\":true,\"avatar_decoration_data\":null,\"avatar\":\"a9de98041c9a0634282c9e814d1c9c5c\"},\"attachments\":[],\"guild_id\":\"854419081813164042\"}}"))
             }
             Err(e) => {
                 eprintln!("Error reading message: {}", e);
@@ -102,105 +120,6 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
 
     drop(transmitter);
     let _ = writer.await;
-
-    /*let (mut write, mut read) = ws_stream.split();
-    let mut heartbeat_interval: Option<u64> = None;
-
-    let write_clone = std::sync::Arc::new(tokio::sync::Mutex::new(write));
-    let write_heartbeat = write_clone.clone();
-
-    tokio::spawn(async move {
-        loop {
-            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            if let Some(interval) = heartbeat_interval {
-                let heartbeat = json!({"op": 1, "d": null});
-                let mut w = write_heartbeat.lock().await;
-                if let Err(e) = w.send(Message::Text(heartbeat.to_string().into())).await {
-                    eprintln!("Heartbeat error: {}", e);
-                    break;
-                }
-            }
-        }
-    });
-
-    // Handle incoming messages
-    while let Some(message) = read.next().await {
-        match message {
-            Ok(Message::Text(text)) => {
-                let data: serde_json::Value = serde_json::from_str(&text)?;
-
-                match data["op"].as_u64() {
-                    Some(10) => {
-                        // HELLO - extract heartbeat interval
-                        heartbeat_interval =
-                            data["d"]["heartbeat_interval"].as_u64().map(|ms| ms / 1000);
-                        println!("Received HELLO, heartbeat every {:?}s", heartbeat_interval);
-
-                        // Send IDENTIFY
-                        let identify = json!({
-                            "op": 2,
-                            "d": {
-                                "token": authorization_token,
-                                "properties": {
-                                    "$os": std::env::consts::OS,
-                                    "$browser": "rust-discord-client",
-                                    "$device": "rust-discord-client"
-                                },
-                                "intents": 33281 // GUILDS + GUILD_MESSAGES + MESSAGE_CONTENT
-                            }
-                        });
-
-                        let mut w = write_clone.lock().await;
-                        w.send(Message::Text(identify.to_string().into())).await?;
-                        println!("Sent IDENTIFY");
-                    }
-                    Some(0) => {
-                        // DISPATCH - handle events
-                        let event_name = data["t"].as_str().unwrap_or("UNKNOWN");
-                        println!("Event: {}", event_name);
-
-                        match event_name {
-                            "READY" => {
-                                println!("Bot is ready!");
-                                if let Some(user) = data["d"]["user"].as_object() {
-                                    println!(
-                                        "Logged in as: {}#{}",
-                                        user["username"].as_str().unwrap_or(""),
-                                        user["discriminator"].as_str().unwrap_or("")
-                                    );
-                                }
-                            }
-                            "MESSAGE_CREATE" => {
-                                if let Some(content) = data["d"]["content"].as_str() {
-                                    let author = data["d"]["author"]["username"]
-                                        .as_str()
-                                        .unwrap_or("Unknown");
-                                    println!("Message from {}: {}", author, content);
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    Some(11) => {
-                        // HEARTBEAT_ACK
-                        println!("Heartbeat acknowledged");
-                    }
-                    _ => {
-                        println!("Received: {}", text);
-                    }
-                }
-            }
-            Ok(Message::Close(frame)) => {
-                println!("Connection closed: {:?}", frame);
-                break;
-            }
-            Err(e) => {
-                eprintln!("Error receiving message: {}", e);
-                break;
-            }
-            _ => {}
-        }
-    }*/
 
     Ok(())
 }
