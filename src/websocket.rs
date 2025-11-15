@@ -7,6 +7,13 @@ use tokio_tungstenite::{
     tungstenite::{self, Message},
 };
 
+// After connection is established and IDENTIFY is sent,
+// it receives the s=1 (first sequence),
+// it contains 4.2mb of data on everything,
+// and by everything i mean everything,
+// like the channel name of a server which the user is a member of,
+// and the id of the last send message in that channel.
+
 pub fn send_heartbeat(
     transmitter: mpsc::UnboundedSender<Message>,
     heartbeat_interval: Option<u64>,
