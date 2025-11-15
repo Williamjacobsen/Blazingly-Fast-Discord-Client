@@ -1,17 +1,13 @@
 use futures_util::{SinkExt, StreamExt};
 use std::{env, error::Error, time::Duration};
+use tokio::sync::mpsc;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{self, Message},
 };
 
 pub fn send_heartbeat(
-    mut write: futures_util::stream::SplitSink<
-        tokio_tungstenite::WebSocketStream<
-            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-        >,
-        Message,
-    >,
+    transmitter: mpsc::UnboundedSender<Message>,
     heartbeat_interval: Option<u64>,
 ) -> Result<(), Box<dyn Error>> {
     let interval = heartbeat_interval.unwrap();
@@ -28,10 +24,7 @@ pub fn send_heartbeat(
                 "d": null
             });
 
-            if let Err(e) = write
-                .send(Message::Text(heartbeat.to_string().into()))
-                .await
-            {
+            if let Err(e) = transmitter.send(Message::Text(heartbeat.to_string().into())) {
                 eprintln!("Failed to send heartbeat: {}", e);
                 break;
             }
@@ -57,6 +50,21 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
 
     let (write, mut read) = ws_stream.split();
 
+    let (transmitter, mut receiver) = mpsc::unbounded_channel::<Message>();
+
+    let writer = {
+        tokio::spawn(async move {
+            let mut write = write;
+            while let Some(message) = receiver.recv().await {
+                if let Err(e) = write.send(message).await {
+                    eprintln!("websocket write error {}", e);
+                    break;
+                }
+            }
+            let _ = write.close().await;
+        })
+    };
+
     if let Some(message) = read.next().await {
         println!("First message: {:?}", message);
         // Ok(Text(Utf8Bytes(b"{\"t\":null,\"s\":null,\"op\":10,\"d\":{\"heartbeat_interval\":41250,\"_trace\":[\"[\\\"gateway-prd-arm-us-east1-c-49x5\\\",{\\\"micros\\\":0.0}]\"]}}")))
@@ -71,10 +79,9 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
                 if let Some(heartbeat_interval) = Some(json["d"]["heartbeat_interval"].as_u64()) {
                     println!("Heartbeat interval: {}", heartbeat_interval.unwrap());
 
-                    // TODO: Look into Mutex
                     // TODO: Send identity payload with intents (opcode 2)
 
-                    send_heartbeat(write, heartbeat_interval)?;
+                    send_heartbeat(transmitter.clone(), heartbeat_interval)?;
                 }
             }
         }
@@ -92,6 +99,9 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
             }
         }
     }
+
+    drop(transmitter);
+    let _ = writer.await;
 
     /*let (mut write, mut read) = ws_stream.split();
     let mut heartbeat_interval: Option<u64> = None;
