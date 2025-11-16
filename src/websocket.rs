@@ -126,6 +126,33 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
 
                             if s == 1 && op == 0 {
                                 // Load inital data:
+
+                                /* Save to json:
+                                match serde_json::to_string_pretty(&json) {
+                                    Ok(pretty) => {
+                                        if let Err(e) = async {
+                                            let mut file = OpenOptions::new()
+                                                .create(true)
+                                                .append(true)
+                                                .open("initial_event.json")
+                                                .await?;
+
+                                            // Write the pretty JSON block
+                                            file.write_all(pretty.as_bytes()).await?;
+                                            file.write_all(b"\n\n").await?; // blank line between entries
+
+                                            file.flush().await?;
+                                            Ok::<(), std::io::Error>(())
+                                        }
+                                        .await
+                                        {
+                                            eprintln!("Failed to write pretty JSON log: {}", e);
+                                        }
+                                    }
+                                    Err(e) => eprintln!("Failed to format JSON: {}", e),
+                                }
+                                break;
+                                */
                             }
 
                             if let Some(author_username) =
