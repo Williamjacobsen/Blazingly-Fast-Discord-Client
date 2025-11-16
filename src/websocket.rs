@@ -1,7 +1,7 @@
 use futures_util::{SinkExt, StreamExt};
 use serde_json::json;
 use std::{env, error::Error, time::Duration};
-use tokio::sync::mpsc;
+use tokio::{fs::OpenOptions, io::AsyncWriteExt, sync::mpsc};
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{self, Message},
@@ -113,23 +113,26 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
     while let Some(message) = read.next().await {
         match message {
             Ok(message) => {
-                let log_entry = format!("Received: {:?}", message);
-                println!("{}", log_entry);
-
                 if let Ok(text) = message.to_text() {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(text) {
                         println!("Parsed JSON: {}", serde_json::to_string_pretty(&json)?);
 
-                        if let Some(op) = json["op"].as_u64() {
+                        if let (Some(op), Some(s), Some(t)) =
+                            (json["op"].as_u64(), json["s"].as_u64(), json["t"].as_str())
+                        {
                             println!("Opcode: {}", op);
-                        }
+                            println!("Sequence number: {}", s);
+                            println!("Event type: {}", t);
 
-                        if let Some(event_type) = json["t"].as_str() {
-                            println!("Event type: {}", event_type)
-                        }
+                            if s == 1 && op == 0 {
+                                // Load inital data:
+                            }
 
-                        if let Some(author_username) = json.pointer("/d/author/username").and_then(|v| v.as_str()) {
-                            println!("Author username: {}", author_username)
+                            if let Some(author_username) =
+                                json.pointer("/d/author/username").and_then(|v| v.as_str())
+                            {
+                                println!("Author username: {}", author_username)
+                            }
                         }
                     }
                 }
