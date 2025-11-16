@@ -1,5 +1,5 @@
 use futures_util::{SinkExt, StreamExt};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::{env, error::Error, time::Duration};
 use tokio::{fs::OpenOptions, io::AsyncWriteExt, sync::mpsc};
 use tokio_tungstenite::{
@@ -13,6 +13,19 @@ use tokio_tungstenite::{
 // and by everything i mean everything,
 // like the channel name of a server which the user is a member of,
 // and the id of the last send message in that channel.
+
+async fn save_pretty_json(path: &str, json: &Value) -> Result<(), std::io::Error> {
+    let pretty = serde_json::to_string_pretty(json).unwrap_or_else(|_| json.to_string());
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .await?;
+    file.write_all(pretty.as_bytes()).await?;
+    file.write_all(b"\n\n").await?;
+    file.flush().await?;
+    Ok(())
+}
 
 pub fn send_heartbeat(
     transmitter: mpsc::UnboundedSender<Message>,
@@ -127,32 +140,24 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
                             if s == 1 && op == 0 {
                                 // Load inital data:
 
-                                /* Save to json:
-                                match serde_json::to_string_pretty(&json) {
-                                    Ok(pretty) => {
-                                        if let Err(e) = async {
-                                            let mut file = OpenOptions::new()
-                                                .create(true)
-                                                .append(true)
-                                                .open("initial_event.json")
-                                                .await?;
+                                if let Some(presences) =
+                                    json.pointer("/d/presences").and_then(|v| v.as_array())
+                                {
+                                    // Gets online friends ( not the correct todo :( )
+                                    for (i, presence) in presences.iter().enumerate() {
+                                        let username = presence
+                                            .get("user")
+                                            .and_then(|u| u.get("global_name"))
+                                            .and_then(|v| v.as_str())
+                                            .unwrap();
 
-                                            // Write the pretty JSON block
-                                            file.write_all(pretty.as_bytes()).await?;
-                                            file.write_all(b"\n\n").await?; // blank line between entries
-
-                                            file.flush().await?;
-                                            Ok::<(), std::io::Error>(())
-                                        }
-                                        .await
-                                        {
-                                            eprintln!("Failed to write pretty JSON log: {}", e);
-                                        }
+                                        println!("User {} = {:?}", i, username);
                                     }
-                                    Err(e) => eprintln!("Failed to format JSON: {}", e),
+
+                                    // TODO: Get usernames of friends.
+
+                                    // TODO: Get client status (online/offline/etc)
                                 }
-                                break;
-                                */
                             }
 
                             if let Some(author_username) =
@@ -178,6 +183,117 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+/*
+ * I thought this was my friends list, but seems to be only my online friends:
+{
+    "d": {
+        "presences":  [
+            {
+                "activities": [
+                    {
+                        "created_at": 1763290216354,
+                        "id": "custom",
+                        "name": "Custom Status",
+                        "session_id": "e548901b5363bc7b14d86a010e5fad06",
+                        "state": "...",
+                        "type": 4
+                    },
+                    {
+                        "application_id": "1158877933042143272",
+                        "created_at": 1763295799430,
+                        "id": "4edea0cca7e880b3",
+                        "name": "Counter-Strike 2",
+                        "session_id": "e548901b5363bc7b14d86a010e5fad06",
+                        "timestamps": {
+                        "start": 1763295800595
+                        },
+                        "type": 0
+                    }
+                ],
+                "client_status": {
+                    "desktop": "dnd"
+                },
+                "hidden_activities": [],
+                "processed_at_timestamp": 1763297860079,
+                "restricted_application": null,
+                "status": "dnd",
+                "user": {
+                    "avatar": "4aa2a73bfbaadce32e319a580ca1697f",
+                    "avatar_decoration_data": null,
+                    "bot": false,
+                    "clan": null,
+                    "collectibles": null,
+                    "discriminator": "0",
+                    "display_name_styles": null,
+                    "global_name": "[ZeGrO]",
+                    "id": "400671489831075851",
+                    "primary_guild": null,
+                    "username": "zegro5163"
+                }
+            },
+            {
+                "activities": [
+                    {
+                        "created_at": 1763298996911,
+                        "emoji": {
+                            "name": "😆"
+                        },
+                        "id": "custom",
+                        "name": "Custom Status",
+                        "session_id": "a5b97ed0c7ff8a13d1f494e0125360df",
+                        "state": "dafoahfagofgaflafafhlagh",
+                        "type": 4
+                    }
+                    ],
+                    "client_status": {
+                        "desktop": "online"
+                    },
+                    "hidden_activities": [],
+                    "processed_at_timestamp": 1763298996911,
+                    "restricted_application": null,
+                    "status": "online",
+                    "user": {
+                    "avatar": "041b30b568c23bb1591554a89fc9b7fb",
+                    "avatar_decoration_data": null,
+                    "bot": false,
+                    "clan": null,
+                    "collectibles": null,
+                    "discriminator": "0",
+                    "display_name_styles": null,
+                    "global_name": "Jens V",
+                    "id": "415957657812205579",
+                    "primary_guild": null,
+                    "username": "jens8310"
+                    }
+                },
+                {
+                    "activities": [],
+                    "client_status": {
+                        "desktop": "online"
+                    },
+                    "hidden_activities": [],
+                    "processed_at_timestamp": 0,
+                    "restricted_application": null,
+                    "status": "online",
+                    "user": {
+                    "avatar": "6a3c00faf47a2619186e496652dd9b22",
+                    "avatar_decoration_data": null,
+                    "bot": false,
+                    "clan": null,
+                    "collectibles": null,
+                    "discriminator": "0",
+                    "display_name_styles": null,
+                    "global_name": "Mathias Hald",
+                    "id": "427015070854283266",
+                    "primary_guild": null,
+                    "username": "mathiashald"
+                }
+            },
+        ]
+    }
+}
+*/
 
 /*
 Parsed JSON: {
