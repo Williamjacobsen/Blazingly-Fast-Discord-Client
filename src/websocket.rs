@@ -140,23 +140,33 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
                             if s == 1 && op == 0 {
                                 // Load inital data:
 
-                                if let Some(presences) =
-                                    json.pointer("/d/presences").and_then(|v| v.as_array())
+                                // Get clients username
+                                if let Some(username) =
+                                    json.pointer("/d/user/global_name").and_then(|v| v.as_str())
                                 {
-                                    // Gets online friends ( not the correct todo :( )
-                                    for (i, presence) in presences.iter().enumerate() {
-                                        let username = presence
-                                            .get("user")
-                                            .and_then(|u| u.get("global_name"))
+                                    println!("Username: {}", username);
+                                }
+
+                                // Get friends usernames
+                                // OMG I GOT I WRONG AGAIN, THIS IS NOT ALL,
+                                // TODO: use /d/private_channels[i]/recipients/global_name,
+                                // and the if global name is null,
+                                // them /username
+                                if let Some(relationships) =
+                                    json.pointer("/d/relationships").and_then(|v| v.as_array())
+                                {
+                                    for (_, relationship) in relationships.iter().enumerate() {
+                                        let friend_username = relationship
+                                            .pointer("/user/global_name")
                                             .and_then(|v| v.as_str())
-                                            .unwrap();
-
-                                        println!("User {} = {:?}", i, username);
+                                            .or_else(|| {
+                                                relationship
+                                                    .pointer("/user/username")
+                                                    .and_then(|v| v.as_str())
+                                            })
+                                            .unwrap_or("<no name>");
+                                        println!("Friend username: {}", friend_username);
                                     }
-
-                                    // TODO: Get usernames of friends.
-
-                                    // TODO: Get client status (online/offline/etc)
                                 }
                             }
 
@@ -165,6 +175,9 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
                             {
                                 println!("Author username: {}", author_username)
                             }
+
+                            // temp:
+                            break;
                         }
                     }
                 }
@@ -183,173 +196,3 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
-/*
- * I thought this was my friends list, but seems to be only my online friends:
-{
-    "d": {
-        "presences":  [
-            {
-                "activities": [
-                    {
-                        "created_at": 1763290216354,
-                        "id": "custom",
-                        "name": "Custom Status",
-                        "session_id": "e548901b5363bc7b14d86a010e5fad06",
-                        "state": "...",
-                        "type": 4
-                    },
-                    {
-                        "application_id": "1158877933042143272",
-                        "created_at": 1763295799430,
-                        "id": "4edea0cca7e880b3",
-                        "name": "Counter-Strike 2",
-                        "session_id": "e548901b5363bc7b14d86a010e5fad06",
-                        "timestamps": {
-                        "start": 1763295800595
-                        },
-                        "type": 0
-                    }
-                ],
-                "client_status": {
-                    "desktop": "dnd"
-                },
-                "hidden_activities": [],
-                "processed_at_timestamp": 1763297860079,
-                "restricted_application": null,
-                "status": "dnd",
-                "user": {
-                    "avatar": "4aa2a73bfbaadce32e319a580ca1697f",
-                    "avatar_decoration_data": null,
-                    "bot": false,
-                    "clan": null,
-                    "collectibles": null,
-                    "discriminator": "0",
-                    "display_name_styles": null,
-                    "global_name": "[ZeGrO]",
-                    "id": "400671489831075851",
-                    "primary_guild": null,
-                    "username": "zegro5163"
-                }
-            },
-            {
-                "activities": [
-                    {
-                        "created_at": 1763298996911,
-                        "emoji": {
-                            "name": "😆"
-                        },
-                        "id": "custom",
-                        "name": "Custom Status",
-                        "session_id": "a5b97ed0c7ff8a13d1f494e0125360df",
-                        "state": "dafoahfagofgaflafafhlagh",
-                        "type": 4
-                    }
-                    ],
-                    "client_status": {
-                        "desktop": "online"
-                    },
-                    "hidden_activities": [],
-                    "processed_at_timestamp": 1763298996911,
-                    "restricted_application": null,
-                    "status": "online",
-                    "user": {
-                    "avatar": "041b30b568c23bb1591554a89fc9b7fb",
-                    "avatar_decoration_data": null,
-                    "bot": false,
-                    "clan": null,
-                    "collectibles": null,
-                    "discriminator": "0",
-                    "display_name_styles": null,
-                    "global_name": "Jens V",
-                    "id": "415957657812205579",
-                    "primary_guild": null,
-                    "username": "jens8310"
-                    }
-                },
-                {
-                    "activities": [],
-                    "client_status": {
-                        "desktop": "online"
-                    },
-                    "hidden_activities": [],
-                    "processed_at_timestamp": 0,
-                    "restricted_application": null,
-                    "status": "online",
-                    "user": {
-                    "avatar": "6a3c00faf47a2619186e496652dd9b22",
-                    "avatar_decoration_data": null,
-                    "bot": false,
-                    "clan": null,
-                    "collectibles": null,
-                    "discriminator": "0",
-                    "display_name_styles": null,
-                    "global_name": "Mathias Hald",
-                    "id": "427015070854283266",
-                    "primary_guild": null,
-                    "username": "mathiashald"
-                }
-            },
-        ]
-    }
-}
-*/
-
-/*
-Parsed JSON: {
-  "d": {
-    "attachments": [],
-    "author": {
-      "avatar": null,
-      "avatar_decoration_data": null,
-      "bot": true,
-      "clan": null,
-      "collectibles": null,
-      "discriminator": "5500",
-      "display_name_styles": null,
-      "global_name": null,
-      "id": "1285564805838536705",
-      "primary_guild": null,
-      "public_flags": 0,
-      "username": "Pyro Asa CrossChat"
-    },
-    "channel_id": "1367846456190570497",
-    "channel_type": 0,
-    "components": [],
-    "content": "[Isl 1] WildcardsTrash [Purina]: no thats wrong",
-    "edited_timestamp": null,
-    "embeds": [],
-    "flags": 0,
-    "guild_id": "933846351245090856",
-    "id": "1439319455845978144",
-    "member": {
-      "avatar": null,
-      "banner": null,
-      "communication_disabled_until": null,
-      "deaf": false,
-      "flags": 0,
-      "joined_at": "2025-05-23T14:44:49.955000+00:00",
-      "mute": false,
-      "nick": "Xavii asa crosschat",
-      "pending": false,
-      "premium_since": null,
-      "roles": [
-        "987549124490559528",
-        "1375484623479374046"
-      ]
-    },
-    "mention_everyone": false,
-    "mention_roles": [],
-    "mentions": [],
-    "pinned": false,
-    "timestamp": "2025-11-15T18:21:39.536000+00:00",
-    "tts": false,
-    "type": 0
-  },
-  "op": 0,
-  "s": 8,
-  "t": "MESSAGE_CREATE"
-}
-Opcode: 0
-Event type: MESSAGE_CREATE
-*/
