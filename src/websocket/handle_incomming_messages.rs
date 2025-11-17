@@ -1,0 +1,54 @@
+use std::error::Error;
+
+use futures_util::{StreamExt, stream::SplitStream};
+use tokio::net::TcpStream;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+
+use crate::websocket::load_initial_data::load_initial_data::load_initial_data;
+
+pub async fn handle_incomming_messages(
+    read: &mut SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+) -> Result<(), Box<dyn Error>> {
+    while let Some(message) = read.next().await {
+        match message {
+            Ok(message) => {
+                if let Ok(text) = message.to_text() {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(text) {
+                        println!("Parsed JSON: {}", serde_json::to_string_pretty(&json)?);
+
+                        if let (Some(op), Some(s), Some(t)) =
+                            (json["op"].as_u64(), json["s"].as_u64(), json["t"].as_str())
+                        {
+                            println!("Opcode: {}", op);
+                            println!("Sequence number: {}", s);
+                            println!("Event type: {}", t);
+
+                            if s == 1 && op == 0 {
+                                load_initial_data(&json);
+                            } else if op == 0 {
+                                if let Some(author_username) =
+                                    json.pointer("/d/author/username").and_then(|v| v.as_str())
+                                {
+                                    println!("Author username: {}", author_username)
+                                }
+                            } else {
+                                println!("Unhandled JSON: {}", serde_json::to_string_pretty(&json)?)
+                            }
+
+                            // temp:
+                            break;
+                        }
+                    }
+                }
+
+                // Text(Utf8Bytes(b"{\"t\":\"MESSAGE_UPDATE\",\"s\":12,\"op\":0,\"d\":{\"type\":0,\"tts\":false,\"timestamp\":\"2025-11-15T16:57:35.201000+00:00\",\"pinned\":false,\"mentions\":[],\"mention_roles\":[],\"mention_everyone\":false,\"member\":{\"roles\":[\"854507461574262784\",\"904818008306905100\"],\"premium_since\":null,\"pending\":false,\"nick\":null,\"mute\":false,\"joined_at\":\"2021-11-01T19:43:43.978000+00:00\",\"flags\":0,\"deaf\":false,\"communication_disabled_until\":null,\"banner\":null,\"avatar\":null},\"id\":\"1439298298371379270\",\"flags\":0,\"embeds\":[{\"type\":\"rich\",\"title\":\"Guess the county\",\"image\":{\"width\":375,\"url\":\"https://gist.githubusercontent.com/GreenEyedBear/f4dfb4d911e284852edfde1b4614c27a/raw/d12547acef0b29ca8e0b1b83c9ea80f49de3c542/952677140443332749.png\",\"proxy_url\":\"https://images-ext-1.discordapp.net/external/-eGxu7A3hGzab0kak8MvR_MFM-jfJslbpCX5S2CnLTM/https/gist.githubusercontent.com/GreenEyedBear/f4dfb4d911e284852edfde1b4614c27a/raw/d12547acef0b29ca8e0b1b83c9ea80f49de3c542/952677140443332749.png\",\"placeholder_version\":1,\"placeholder\":\"+OeBCwIPNGvHCkYqDLGVAxASVHZTVmc=\",\"height\":722,\"flags\":0,\"content_type\":\"image/png\"},\"id\":\"1439298298371379271\",\"footer\":{\"text\":\"No image? Write `!pic`\"},\"content_scan_version\":2,\"color\":3918480}],\"edited_timestamp\":null,\"content\":\"\",\"components\":[{\"type\":1,\"id\":1,\"components\":[{\"type\":2,\"style\":2,\"label\":\"Skip question\",\"id\":2,\"custom_id\":\"efa52dd8ae9c20d25cc87a13f4ff6ee6\"}]}],\"channel_type\":0,\"channel_id\":\"1019630540049104926\",\"author\":{\"username\":\"MetaBot\",\"public_flags\":0,\"primary_guild\":null,\"id\":\"904794678686269480\",\"global_name\":null,\"display_name_styles\":null,\"discriminator\":\"1693\",\"collectibles\":null,\"clan\":null,\"bot\":true,\"avatar_decoration_data\":null,\"avatar\":\"a9de98041c9a0634282c9e814d1c9c5c\"},\"attachments\":[],\"guild_id\":\"854419081813164042\"}}"))
+            }
+            Err(e) => {
+                eprintln!("Error reading message: {}", e);
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
