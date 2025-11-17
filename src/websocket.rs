@@ -143,7 +143,7 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
                             if s == 1 && op == 0 {
                                 // Load inital data:
 
-                                // Get clients username
+                                // Get client username
                                 if let Some(username) =
                                     json.pointer("/d/user/global_name").and_then(|v| v.as_str())
                                 {
@@ -188,12 +188,14 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
                                         }
                                     }
                                 }
-                            }
-
-                            if let Some(author_username) =
-                                json.pointer("/d/author/username").and_then(|v| v.as_str())
-                            {
-                                println!("Author username: {}", author_username)
+                            } else if op == 0 {
+                                if let Some(author_username) =
+                                    json.pointer("/d/author/username").and_then(|v| v.as_str())
+                                {
+                                    println!("Author username: {}", author_username)
+                                }
+                            } else {
+                                println!("Unhandled JSON: {}", serde_json::to_string_pretty(&json)?)
                             }
 
                             // temp:
