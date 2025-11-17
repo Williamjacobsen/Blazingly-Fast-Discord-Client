@@ -13,6 +13,9 @@ use tokio_tungstenite::{
 // and by everything i mean everything,
 // like the channel name of a server which the user is a member of,
 // and the id of the last send message in that channel.
+// After the necessary data has be loaded, discard the rest,
+// when more data is needed (like client clicking on a guild/server),
+// then send hello code again, and load the data that is now needed.
 
 async fn save_pretty_json(path: &str, json: &Value) -> Result<(), std::io::Error> {
     let pretty = serde_json::to_string_pretty(json).unwrap_or_else(|_| json.to_string());
@@ -147,25 +150,42 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
                                     println!("Username: {}", username);
                                 }
 
-                                // Get friends usernames
-                                // OMG I GOT I WRONG AGAIN, THIS IS NOT ALL,
-                                // TODO: use /d/private_channels[i]/recipients/global_name,
-                                // and the if global name is null,
-                                // them /username
-                                if let Some(relationships) =
-                                    json.pointer("/d/relationships").and_then(|v| v.as_array())
+                                // Get private channels (friends and groups)
+                                if let Some(private_channels) = json
+                                    .pointer("/d/private_channels")
+                                    .and_then(|v| v.as_array())
                                 {
-                                    for (_, relationship) in relationships.iter().enumerate() {
-                                        let friend_username = relationship
-                                            .pointer("/user/global_name")
-                                            .and_then(|v| v.as_str())
-                                            .or_else(|| {
-                                                relationship
-                                                    .pointer("/user/username")
+                                    for private_channel in private_channels {
+                                        if let Some(recipients) = private_channel
+                                            .get("recipients")
+                                            .and_then(|r| r.as_array())
+                                        {
+                                            if recipients.len() >= 2 {
+                                                let group_name = private_channel
+                                                    .get("name")
                                                     .and_then(|v| v.as_str())
-                                            })
-                                            .unwrap_or("<no name>");
-                                        println!("Friend username: {}", friend_username);
+                                                    .unwrap_or("<no group name>");
+                                                println!("Group name: {}", group_name)
+                                            }
+
+                                            for recipient in recipients {
+                                                let name = recipient
+                                                    .get("global_name")
+                                                    .and_then(|v| v.as_str())
+                                                    .or_else(|| {
+                                                        recipient
+                                                            .get("username")
+                                                            .and_then(|v| v.as_str())
+                                                    })
+                                                    .unwrap_or("<no name>");
+                                                println!("Recipient: {}", name);
+                                            }
+                                        } else {
+                                            println!(
+                                                "No recipients or not an array: {}",
+                                                private_channel
+                                            );
+                                        }
                                     }
                                 }
                             }
