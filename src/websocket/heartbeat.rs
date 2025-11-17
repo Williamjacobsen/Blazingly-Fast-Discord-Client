@@ -3,6 +3,7 @@ use std::{error::Error, time::Duration};
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 
+/// Sends heartbeats through the unbounded Message channel, to the writer_task.
 pub fn send_heartbeats(
     transmitter: mpsc::UnboundedSender<Message>,
     heartbeat_interval: u64,

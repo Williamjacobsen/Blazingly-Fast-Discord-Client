@@ -7,16 +7,14 @@ use crate::websocket::handle_connection::handle_connection;
 use crate::websocket::handle_incomming_messages::handle_incomming_messages;
 use crate::websocket::writer_task::writer_task;
 
-// After connection is established and IDENTIFY is sent,
-// it receives the s=1 (first sequence),
-// it contains 4.2mb of data on everything,
-// and by everything i mean everything,
-// like the channel name of a server which the user is a member of,
-// and the id of the last send message in that channel.
-// After the necessary data has be loaded, discard the rest,
-// when more data is needed (like client clicking on a guild/server),
-// then send hello code again, and load the data that is now needed.
-
+/// Connects to discords websocket.
+///
+/// 1. Establishes a connection to the gateway.
+/// 2. Receives "Hello" event (it contains heartbeat_interval), (opcode 10).
+/// 3. Send identity (authorization_token) with intent (what you intent to received, like messages, guilds, etc), (opcode 2).
+/// 4. Sends heartbeats event heartbeat_interval (opcode 1).
+/// 5. Receives heartbeat ACK events (opcode 11). - NOT IMPLEMENTED
+/// 6. Receives messages/updates from discord (opcode 0 && seq_num > 0).
 pub async fn connect() -> Result<(), Box<dyn Error>> {
     let authorization_token =
         env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN environment variable not set");

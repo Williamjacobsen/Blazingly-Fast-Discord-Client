@@ -3,6 +3,9 @@ use std::error::Error;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::tungstenite::Message;
 
+/// Sends opcode 2,
+/// with authorization token,
+/// and intent (request certain information).
 pub async fn send_identity(
     authorization_token: &str,
     transmitter: UnboundedSender<Message>,

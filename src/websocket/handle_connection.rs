@@ -9,6 +9,11 @@ use tokio_tungstenite::{
 use crate::websocket::heartbeat::send_heartbeats;
 use crate::websocket::load_initial_data::send_identity::send_identity;
 
+/// Handles websocket sonnection
+///
+/// if the first incomming message has opcode 10:
+/// - send_identity (sends opcode 2 with authorization token and intent)
+/// - send_heartbeats (with heartbeat_interval from Message)
 pub async fn handle_connection(
     read: &mut SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     authorization_token: &str,
