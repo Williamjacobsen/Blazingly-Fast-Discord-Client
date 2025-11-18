@@ -5,8 +5,7 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use crate::websocket::{
-    load_initial_data::load_initial_data::load_initial_data,
-    sequence_tracker::{self, SequenceTracker},
+    load_initial_data::load_initial_data::load_initial_data, sequence_tracker::SequenceTracker,
 };
 
 /// Handles incomming messages.
