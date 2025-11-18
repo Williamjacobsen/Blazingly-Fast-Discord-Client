@@ -1,13 +1,13 @@
 use futures_util::{stream::SplitStream, StreamExt};
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 use tokio::{net::TcpStream, sync::mpsc::UnboundedSender};
 use tokio_tungstenite::{
     tungstenite::{self, Message},
     MaybeTlsStream, WebSocketStream,
 };
 
-use crate::websocket::heartbeat::send_heartbeats;
 use crate::websocket::load_initial_data::send_identity::send_identity;
+use crate::websocket::{heartbeat::send_heartbeats, sequence_tracker::SequenceTracker};
 
 /// Handles websocket sonnection
 ///
@@ -18,6 +18,7 @@ pub async fn handle_connection(
     read: &mut SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     authorization_token: &str,
     transmitter: UnboundedSender<Message>,
+    sequence_tracker: Arc<SequenceTracker>,
 ) -> Result<(), Box<dyn Error>> {
     if let Some(message) = read.next().await {
         println!("First message: {:?}", message);
@@ -35,7 +36,7 @@ pub async fn handle_connection(
 
                     send_identity(authorization_token, transmitter.clone()).await?;
 
-                    send_heartbeats(transmitter.clone(), heartbeat_interval)?;
+                    send_heartbeats(transmitter.clone(), heartbeat_interval, sequence_tracker)?;
                 }
             }
         }

@@ -1,4 +1,5 @@
 use futures_util::StreamExt;
+use std::sync::Arc;
 use std::{env, error::Error};
 use tokio::sync::mpsc::{self};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
@@ -6,6 +7,7 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 use crate::websocket::handle_connection::handle_connection;
 use crate::websocket::handle_incomming_messages::handle_incomming_messages;
 use crate::websocket::writer_task::writer_task;
+use crate::websocket::sequence_tracker::SequenceTracker;
 
 /// Connects to discords websocket.
 ///
@@ -31,9 +33,11 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
 
     let writer = tokio::spawn(writer_task(write, receiver));
 
-    handle_connection(&mut read, &authorization_token, transmitter.clone()).await?;
+    let sequence_tracker = Arc::new(SequenceTracker::new());
+    
+    handle_connection(&mut read, &authorization_token, transmitter.clone(), sequence_tracker.clone()).await?;
 
-    handle_incomming_messages(&mut read).await?;
+    handle_incomming_messages(&mut read, sequence_tracker.clone()).await?;
 
     drop(transmitter);
     let _ = writer.await;

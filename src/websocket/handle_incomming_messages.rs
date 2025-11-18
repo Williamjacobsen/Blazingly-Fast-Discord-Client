@@ -1,10 +1,13 @@
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
 use futures_util::{stream::SplitStream, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
-use crate::websocket::load_initial_data::load_initial_data::load_initial_data;
+use crate::websocket::{
+    load_initial_data::load_initial_data::load_initial_data,
+    sequence_tracker::{self, SequenceTracker},
+};
 
 /// Handles incomming messages.
 ///
@@ -24,6 +27,7 @@ use crate::websocket::load_initial_data::load_initial_data::load_initial_data;
 /// - 31 Request Soundboard Sounds (Send): Request information about soundboard sounds in a set of guilds.
 pub async fn handle_incomming_messages(
     read: &mut SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    sequence_tracker: Arc<SequenceTracker>,
 ) -> Result<(), Box<dyn Error>> {
     while let Some(message) = read.next().await {
         match message {
@@ -31,6 +35,14 @@ pub async fn handle_incomming_messages(
                 if let Ok(text) = message.to_text() {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(text) {
                         println!("Parsed JSON: {}", serde_json::to_string_pretty(&json)?);
+
+                        if let Some(s) = json["s"].as_u64() {
+                            if s > sequence_tracker.get() {
+                                sequence_tracker.update(s);
+                            } else {
+                                eprintln!("Wrong seq_num: {}", s);
+                            }
+                        }
 
                         if let (Some(op), Some(s), Some(t)) =
                             (json["op"].as_u64(), json["s"].as_u64(), json["t"].as_str())
@@ -49,11 +61,10 @@ pub async fn handle_incomming_messages(
                                 //    println!("Author username: {}", author_username)
                                 //}
                             } else {
-                                println!("Unhandled JSON: {}", serde_json::to_string_pretty(&json)?)
                             }
 
                             // temp:
-                            break;
+                            //break;
                         }
                     }
                 }
