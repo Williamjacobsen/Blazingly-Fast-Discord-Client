@@ -42,11 +42,12 @@ pub async fn handle_incomming_messages(
                             if s == 1 && op == 0 {
                                 load_initial_data(&json);
                             } else if op == 0 {
-                                if let Some(author_username) =
-                                    json.pointer("/d/author/username").and_then(|v| v.as_str())
-                                {
-                                    println!("Author username: {}", author_username)
-                                }
+                                // Should check event type "t".
+                                //if let Some(author_username) =
+                                //    json.pointer("/d/author/username").and_then(|v| v.as_str())
+                                //{
+                                //    println!("Author username: {}", author_username)
+                                //}
                             } else {
                                 println!("Unhandled JSON: {}", serde_json::to_string_pretty(&json)?)
                             }
