@@ -4,8 +4,11 @@ use futures_util::{stream::SplitStream, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
-use crate::websocket::{
-    load_initial_data::load_initial_data::load_initial_data, sequence_tracker::SequenceTracker,
+use crate::{
+    state::AppState,
+    websocket::{
+        load_initial_data::load_initial_data::load_initial_data, sequence_tracker::SequenceTracker,
+    },
 };
 
 /// Handles incomming messages.
@@ -27,6 +30,7 @@ use crate::websocket::{
 pub async fn handle_incomming_messages(
     read: &mut SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     sequence_tracker: Arc<SequenceTracker>,
+    app_state: AppState,
 ) -> Result<(), Box<dyn Error>> {
     while let Some(message) = read.next().await {
         match message {
@@ -51,7 +55,10 @@ pub async fn handle_incomming_messages(
                             println!("Event type: {}", t);
 
                             if s == 1 && op == 0 {
-                                load_initial_data(&json);
+                                load_initial_data(&json, app_state.clone()).await;
+
+                                let app_data = app_state.read().await;
+                                println!("{:?}", *app_data);
                             } else if op == 0 {
                                 // Should check event type "t".
                                 //if let Some(author_username) =

@@ -4,6 +4,7 @@ use std::{env, error::Error};
 use tokio::sync::mpsc::{self};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
+use crate::state::AppState;
 use crate::websocket::handle_connection::handle_connection;
 use crate::websocket::handle_incomming_messages::handle_incomming_messages;
 use crate::websocket::writer_task::writer_task;
@@ -17,7 +18,7 @@ use crate::websocket::sequence_tracker::SequenceTracker;
 /// 4. Sends heartbeats event heartbeat_interval (opcode 1).
 /// 5. Receives heartbeat ACK events (opcode 11). - NOT IMPLEMENTED
 /// 6. Receives messages/updates from discord (opcode 0 && seq_num > 0).
-pub async fn connect() -> Result<(), Box<dyn Error>> {
+pub async fn connect(app_state: AppState) -> Result<(), Box<dyn Error>> {
     let authorization_token =
         env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN environment variable not set");
 
@@ -37,7 +38,7 @@ pub async fn connect() -> Result<(), Box<dyn Error>> {
     
     handle_connection(&mut read, &authorization_token, transmitter.clone(), sequence_tracker.clone()).await?;
 
-    handle_incomming_messages(&mut read, sequence_tracker.clone()).await?;
+    handle_incomming_messages(&mut read, sequence_tracker.clone(), app_state).await?;
 
     drop(transmitter);
     let _ = writer.await;
