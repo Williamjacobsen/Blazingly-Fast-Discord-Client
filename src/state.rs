@@ -21,10 +21,16 @@ pub struct PrivateChannel {
     pub recipients: Vec<User>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Guild {
+    pub name: String
+}
+
 #[derive(Debug, Default)]
 pub struct AppData {
     pub current_user: Option<User>,
     pub private_channels: Vec<PrivateChannel>,
+    pub guilds: Vec<Guild>
 }
 
 pub type AppState = Arc<RwLock<AppData>>;

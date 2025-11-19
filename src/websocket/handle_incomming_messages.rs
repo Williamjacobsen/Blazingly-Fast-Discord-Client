@@ -70,7 +70,7 @@ pub async fn handle_incomming_messages(
                             }
 
                             // temp:
-                            //break;
+                            break;
                         }
                     }
                 }
