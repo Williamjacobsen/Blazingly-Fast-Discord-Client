@@ -1,3 +1,5 @@
+use image::ImageFormat;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -20,6 +22,20 @@ impl User {
         } else {
             &self.username
         }
+    }
+
+    pub async fn get_avatar(&self, client: &Client) {
+        let url = format!(
+            "https://cdn.discordapp.com/avatars/{}/{}.png?size=32",
+            self.id, self.avatar_hash
+        );
+
+        // TODO: 
+        // 1. Get image
+        // 2. Save image as id/avatar_hash under assets folder
+        // 3. Figure out how to show image in slint
+        // 4. If image has already been saved, no need to send request, just load from filesystem
+        // 5. If id is in filesystem but avatar_hash is different, delete the old image.
     }
 }
 
