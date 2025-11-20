@@ -29,6 +29,8 @@ pub struct PrivateChannel {
     pub channel_type: ChannelType,
     pub name: Option<String>,
     pub recipients: Vec<User>,
+    /// sort_id is either a snowflake id of the last message sent, or a snowflake id of the channels creation.
+    pub sort_id: u64,
 }
 
 impl PrivateChannel {

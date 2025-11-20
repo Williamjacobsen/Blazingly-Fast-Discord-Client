@@ -52,11 +52,24 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
                     })
                     .collect();
 
+                let sort_id = private_channel
+                    .get("last_message_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(
+                        private_channel
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .and_then(|s| s.parse().ok())
+                            .unwrap_or(0),
+                    );
+
                 if !user_recipients.is_empty() {
                     channels.push(PrivateChannel {
                         channel_type,
                         name,
                         recipients: user_recipients,
+                        sort_id,
                     });
                 }
             }
