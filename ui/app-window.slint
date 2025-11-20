@@ -5,12 +5,8 @@ export component AppWindow inherits Window {
     min-width: 800px;
     min-height: 600px;
 
-    in property <string> current-username: "Connecting...";
-    in property <string> current-global-name: "";
     in property <string> visible-name: "Username";
-    in property <int> private-channels-count: 0;
-    in property <int> guilds-count: 0;
-    in property <[string]> private-channel-names: ["Connecting..."];
+    in property <[string]> private-channel-names: ["Connecting...", "dwa", "dawda"];
 
     property <color> primary-color: #5865f2;
     property <color> background-color: #36393f;
@@ -46,7 +42,7 @@ export component AppWindow inherits Window {
         background: card-color;
 
         Rectangle {
-            y: 30px;
+            y: 20px;
             x: 5px;
             height: parent.height - 100px;
             width: parent.width - 10px;
@@ -58,23 +54,21 @@ export component AppWindow inherits Window {
 
                 // Private channel cards
                 VerticalBox {
-                    spacing: 20px;
+                    spacing: 5px;
                     alignment: start;
 
-                    for private-channel-name in private-channel-names: Text {
-                        Rectangle {
-                            background: red;
-                            height: 35px;
-                            border-radius: 5px;
-                            clip: true;
+                    for private-channel-name in private-channel-names: Rectangle {
+                        background: red;
+                        height: 35px;
+                        border-radius: 5px;
+                        clip: true;
 
-                            Text {
-                                text: private-channel-name;
-                                font-size: 14px;
-                                x: 20px;
-                                width: parent.width - 40px;
-                                overflow: TextOverflow.elide;
-                            }
+                        Text {
+                            text: private-channel-name;
+                            font-size: 14px;
+                            x: 20px;
+                            width: parent.width - 40px;
+                            overflow: TextOverflow.elide;
                         }
                     }
                 }

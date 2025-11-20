@@ -10,10 +10,10 @@ pub struct User {
 
 impl User {
     pub fn display_name(&self) -> &str {
-        if !self.username.is_empty() {
-            &self.username
-        } else {
+        if !self.global_name.is_empty() {
             &self.global_name
+        } else {
+            &self.username
         }
     }
 }
