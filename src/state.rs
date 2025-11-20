@@ -1,11 +1,21 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::{mpsc, RwLock};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     pub username: String,
     pub global_name: String,
+}
+
+impl User {
+    pub fn display_name(&self) -> &str {
+        if !self.username.is_empty() {
+            &self.username
+        } else {
+            &self.global_name
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,16 +31,34 @@ pub struct PrivateChannel {
     pub recipients: Vec<User>,
 }
 
+impl PrivateChannel {
+    pub fn display_name(&self) -> String {
+        self.name.clone().unwrap_or_else(|| {
+            let recipient_names: Vec<String> = self
+                .recipients
+                .iter()
+                .map(|user| user.display_name().to_string())
+                .collect();
+
+            if recipient_names.is_empty() {
+                "<no recipients>".to_string()
+            } else {
+                recipient_names.join(", ")
+            }
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Guild {
-    pub name: String
+    pub name: String,
 }
 
 #[derive(Debug, Default)]
 pub struct AppData {
     pub current_user: Option<User>,
     pub private_channels: Vec<PrivateChannel>,
-    pub guilds: Vec<Guild>
+    pub guilds: Vec<Guild>,
 }
 
 pub type AppState = Arc<RwLock<AppData>>;
