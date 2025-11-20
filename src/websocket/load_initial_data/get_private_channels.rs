@@ -29,6 +29,12 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
                 let user_recipients: Vec<User> = recipients
                     .iter()
                     .filter_map(|recipient| {
+                        let id = recipient
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or_default()
+                            .to_string();
+
                         let username = recipient
                             .get("username")
                             .and_then(|v| v.as_str())
@@ -41,10 +47,18 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
                             .unwrap_or("")
                             .to_string();
 
+                        let avatar_hash = recipient
+                            .get("avatar")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or_default()
+                            .to_string();
+
                         if !username.is_empty() || !global_name.is_empty() {
                             Some(User {
+                                id,
                                 username,
                                 global_name,
+                                avatar_hash
                             })
                         } else {
                             None

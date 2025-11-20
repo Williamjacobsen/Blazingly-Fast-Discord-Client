@@ -4,9 +4,14 @@ use tokio::sync::{mpsc, RwLock};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
+    pub id: String,
     pub username: String,
     pub global_name: String,
+    pub avatar_hash: String,
 }
+
+// to get avatar from avatar_hash and id request:
+// https://cdn.discordapp.com/avatars/{the users id}/{the users avatar hash}.png?size=32
 
 impl User {
     pub fn display_name(&self) -> &str {
