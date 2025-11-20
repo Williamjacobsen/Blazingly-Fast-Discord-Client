@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, mpsc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
@@ -37,4 +37,12 @@ pub type AppState = Arc<RwLock<AppData>>;
 
 pub fn create_app_state() -> AppState {
     Arc::new(RwLock::new(AppData::default()))
+}
+
+pub type UpdateSender = mpsc::UnboundedSender<()>;
+pub type UpdateReceiver = mpsc::UnboundedReceiver<()>;
+
+/// Used for sending () as a UI update signal.
+pub fn create_update_channel() -> (UpdateSender, UpdateReceiver) {
+    mpsc::unbounded_channel()
 }

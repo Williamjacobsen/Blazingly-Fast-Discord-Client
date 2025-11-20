@@ -5,7 +5,7 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use crate::{
-    state::AppState,
+    state::{AppState, UpdateSender},
     websocket::{
         load_initial_data::load_initial_data::load_initial_data, sequence_tracker::SequenceTracker,
     },
@@ -31,6 +31,7 @@ pub async fn handle_incomming_messages(
     read: &mut SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     sequence_tracker: Arc<SequenceTracker>,
     app_state: AppState,
+    update_sender: UpdateSender
 ) -> Result<(), Box<dyn Error>> {
     while let Some(message) = read.next().await {
         match message {
@@ -56,6 +57,8 @@ pub async fn handle_incomming_messages(
 
                             if s == 1 && op == 0 {
                                 load_initial_data(&json, app_state.clone()).await;
+
+                                let _ = update_sender.send(());
 
                                 let app_data = app_state.read().await;
                                 println!("{:?}", *app_data);
