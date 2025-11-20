@@ -1,12 +1,13 @@
 import { VerticalBox, HorizontalBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
-    min-height: 400px;
-    min-width: 600px;
     title: "Discord Client";
+    min-width: 800px;
+    min-height: 600px;
 
     in property <string> current-username: "Connecting...";
     in property <string> current-global-name: "";
+    in property <string> visible-name: "Username";
     in property <int> private-channels-count: 0;
     in property <int> guilds-count: 0;
 
@@ -15,154 +16,66 @@ export component AppWindow inherits Window {
     property <color> card-color: #2f3136;
     property <color> text-color: #ffffff;
 
-    VerticalBox {
-        padding: 20px;
-        spacing: 15px;
+    background: background-color;
 
-        // User Info Card
+    // Guilds column
+    Rectangle {
+        width: 80px;
+        height: parent.height;
+        x: 0;
+        y: 0;
+        background: card-color;
+
         Rectangle {
-            background: card-color;
-            height: 80px;
-            border-radius: 10px;
-
-            HorizontalBox {
-                spacing: 15px;
-                padding: 15px;
-
-                // Avatar
-                Rectangle {
-                    width: 50px;
-                    height: 50px;
-                    background: primary-color;
-                    border-radius: 25px;
-                }
-
-                VerticalBox {
-                    Text {
-                        text: current-username;
-                        color: text-color;
-                        font-size: 18px;
-                        font-weight: 700;
-                    }
-
-                    Text {
-                        text: current-global-name;
-                        color: #888;
-                        font-size: 14px;
-                        visible: current-global-name != "";
-                    }
-                }
-            }
+            y: 0;
+            x: 10px;
+            height: parent.height - 70px;
+            width: parent.width - 10px;
         }
+    }
 
-        // Stats Row
-        HorizontalBox {
-            spacing: 15px;
+    // Private channels column
+    Rectangle {
+        width: 250px;
+        height: parent.height;
+        x: 80px;
+        y: 0;
+        background: card-color;
 
-            Rectangle {
-                background: card-color;
-                height: 80px;
-                border-radius: 10px;
-                min-width: 150px;
-
-                VerticalBox {
-                    padding: 10px;
-                    alignment: center;
-
-                    Text {
-                        text: "Private\nChannels";
-                        color: #888;
-                        font-size: 12px;
-                        horizontal-alignment: center;
-                    }
-
-                    Text {
-                        text: private-channels-count;
-                        color: text-color;
-                        font-size: 24px;
-                        font-weight: 700;
-                    }
-                }
-            }
-
-            Rectangle {
-                background: card-color;
-                height: 80px;
-                border-radius: 10px;
-                min-width: 150px;
-
-                VerticalBox {
-                    padding: 10px;
-                    alignment: center;
-
-                    Text {
-                        text: "Guilds\n(Servers)";
-                        color: #888;
-                        font-size: 12px;
-                        horizontal-alignment: center;
-                    }
-
-                    Text {
-                        text: guilds-count;
-                        color: text-color;
-                        font-size: 24px;
-                        font-weight: 700;
-                    }
-                }
-            }
-        }
-
-        // Status Area
         Rectangle {
-            background: card-color;
-            height: 120px;
-            border-radius: 10px;
+            y: 0;
+            x: 0;
+            height: parent.height - 70px;
+            width: parent.width - 10px;
+        
+            // Private channel cards here
+        }
+    }
 
-            VerticalBox {
-                padding: 15px;
-                spacing: 10px;
-
-                Text {
-                    text: "Connection Status";
-                    color: #888;
-                    font-size: 14px;
-                    font-weight: 600;
-                }
-
-                HorizontalBox {
-                    spacing: 10px;
-
-                    Rectangle {
-                        width: 10px;
-                        height: 10px;
-                        background: #43b581;
-                        border-radius: 5px;
-                    }
-
-                    Text {
-                        text: "Connected to Discord Gateway";
-                        color: text-color;
-                        font-size: 14px;
-                    }
-                }
-
-                HorizontalBox {
-                    spacing: 10px;
-
-                    Rectangle {
-                        width: 10px;
-                        height: 10px;
-                        background: #43b581;
-                        border-radius: 5px;
-                    }
-
-                    Text {
-                        text: "Heartbeat active";
-                        color: text-color;
-                        font-size: 14px;
-                    }
-                }
-            }
+    // Border between Private channels column and Guilds column
+    Rectangle {
+        x: 80px;
+        width: 2px;
+        height: parent.height - 110px;
+        y: 20px;
+        background: background-color.darker(-0.3);
+        border-radius: 10px;
+    }
+    
+    // User profile
+    Rectangle {
+        width: 310px;
+        height: 60px;
+        y: parent.height - self.height - 10px;
+        x: 10px;
+        background: background-color;
+        border-radius: 8px;
+        Text {
+            text: visible-name;
+            color: text-color;
+            font-size: 16px;
+            vertical-alignment: center;
+            horizontal-alignment: center;
         }
     }
 }
