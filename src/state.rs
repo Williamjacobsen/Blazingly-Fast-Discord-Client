@@ -9,14 +9,8 @@ use tokio::{
     sync::{mpsc, RwLock},
 };
 
-// TODO:
-// when all avatars are loaded,
-// then check if a user has to different avatars saved locally,
-// and delete the old one.
-
 static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
     Client::builder()
-        .user_agent("DiscordClient") // optional but polite
         .pool_idle_timeout(std::time::Duration::from_secs(30))
         .pool_max_idle_per_host(8)
         .build()
@@ -68,19 +62,29 @@ impl User {
             return Ok(());
         }
 
-        // TODO: if user doesnt have an avatar, cycle through default avatars.
-        // TODO: if avatar hash starts with a_, download webp.
-        // TODO: try smaller img size.
-        let url = format!(
-            "https://cdn.discordapp.com/avatars/{}/{}.png?size=64",
-            self.id, self.avatar_hash
-        );
+        let (extension, url) = if self.avatar_hash.starts_with("a_") {
+            (
+                "gif",
+                format!(
+                    "https://cdn.discordapp.com/avatars/{}/{}.webp?size=64",
+                    self.id, self.avatar_hash
+                ),
+            )
+        } else {
+            (
+                "png",
+                format!(
+                    "https://cdn.discordapp.com/avatars/{}/{}.png?size=64",
+                    self.id, self.avatar_hash
+                ),
+            )
+        };
 
         let bytes = HTTP_CLIENT.get(url).send().await?.bytes().await?;
 
         let folder = "./assets/avatars";
         tokio::fs::create_dir_all(folder).await?;
-        let file_path = format!("{}/{}_{}.png", folder, self.id, self.avatar_hash);
+        let file_path = format!("{}/{}_{}.{}", folder, self.id, self.avatar_hash, extension);
         let mut file = File::create(&file_path).await?;
         file.write_all(&bytes).await?;
 
