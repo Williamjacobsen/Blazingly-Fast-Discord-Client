@@ -68,6 +68,9 @@ impl User {
             return Ok(());
         }
 
+        // TODO: if user doesnt have an avatar, cycle through default avatars.
+        // TODO: if avatar hash starts with a_, download webp.
+        // TODO: try smaller img size.
         let url = format!(
             "https://cdn.discordapp.com/avatars/{}/{}.png?size=64",
             self.id, self.avatar_hash
