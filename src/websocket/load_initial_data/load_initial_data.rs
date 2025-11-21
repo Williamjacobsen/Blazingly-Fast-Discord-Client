@@ -18,7 +18,9 @@ pub async fn load_initial_data(json: &Value, app_state: AppState) {
     let mut app_data = app_state.write().await;
 
     if let Some(user) = client_user {
-        app_data.current_user = Some(user);
+        app_data.current_user = Some(user.clone());
+
+        let _ = user.get_avatar().await;
     }
 
     app_data.private_channels = private_channels;

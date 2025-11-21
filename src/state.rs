@@ -1,8 +1,27 @@
-use image::ImageFormat;
+use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use slint::Image;
+use std::{error::Error, path::PathBuf, sync::Arc};
+use tokio::{
+    fs::File,
+    io::AsyncWriteExt,
+    sync::{mpsc, RwLock},
+};
+
+// TODO:
+// when all avatars are loaded,
+// then check if a user has to different avatars saved locally,
+// and delete the old one.
+
+static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
+    Client::builder()
+        .user_agent("DiscordClient") // optional but polite
+        .pool_idle_timeout(std::time::Duration::from_secs(30))
+        .pool_max_idle_per_host(8)
+        .build()
+        .expect("Failed to create global HTTP client")
+});
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
@@ -11,9 +30,6 @@ pub struct User {
     pub global_name: String,
     pub avatar_hash: String,
 }
-
-// to get avatar from avatar_hash and id request:
-// https://cdn.discordapp.com/avatars/{the users id}/{the users avatar hash}.png?size=32
 
 impl User {
     pub fn display_name(&self) -> &str {
@@ -24,18 +40,46 @@ impl User {
         }
     }
 
-    pub async fn get_avatar(&self, client: &Client) {
+    fn local_avatar_path(&self) -> PathBuf {
+        PathBuf::from(format!(
+            "./assets/avatars/{}_{}.png",
+            self.id, self.avatar_hash
+        ))
+    }
+
+    pub fn load_avatar_image(&self) -> Image {
+        let path = self.local_avatar_path();
+
+        if path.exists() {
+            Image::load_from_path(&path).unwrap_or_default()
+        } else {
+            Image::default()
+        }
+    }
+
+    pub async fn get_avatar(&self) -> Result<(), Box<dyn Error>> {
+        let path = self.local_avatar_path();
+
+        if path.exists() {
+            return Ok(());
+        }
+
         let url = format!(
-            "https://cdn.discordapp.com/avatars/{}/{}.png?size=32",
+            "https://cdn.discordapp.com/avatars/{}/{}.png?size=64",
             self.id, self.avatar_hash
         );
 
-        // TODO: 
-        // 1. Get image
-        // 2. Save image as id/avatar_hash under assets folder
-        // 3. Figure out how to show image in slint
-        // 4. If image has already been saved, no need to send request, just load from filesystem
-        // 5. If id is in filesystem but avatar_hash is different, delete the old image.
+        let bytes = HTTP_CLIENT.get(url).send().await?.bytes().await?;
+
+        let folder = "./assets/avatars";
+        tokio::fs::create_dir_all(folder).await?;
+        let file_path = format!("{}/{}_{}.png", folder, self.id, self.avatar_hash);
+        let mut file = File::create(&file_path).await?;
+        file.write_all(&bytes).await?;
+
+        println!("Hopefully saved avatar");
+
+        Ok(())
     }
 }
 

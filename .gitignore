@@ -12,3 +12,5 @@
 
 # Custom
 .env
+
+/assets/avatars

@@ -5,7 +5,8 @@ export component AppWindow inherits Window {
     min-width: 800px;
     min-height: 600px;
 
-    in property <string> visible-name: "Username";
+    in property <string> visible-name: "Connecting...";
+    in property <image> avatar-image;
     in property <[string]> private-channel-names: ["Connecting..."];
 
     property <color> primary-color: #5865f2;
@@ -94,6 +95,19 @@ export component AppWindow inherits Window {
         x: 10px;
         background: background-color;
         border-radius: 8px;
+
+        Rectangle {
+            width: 50px;
+            height: 50px;
+            x: 10px;
+            y: 5px;
+            border-radius: 50px;
+            clip: true;
+            background: #2e2d2d;
+            Image {
+                source: avatar-image;
+            }
+        }
 
         Text {
             text: visible-name;

@@ -29,6 +29,10 @@ pub fn run_app(
                 .collect::<Vec<SharedString>>(),
         ));
         ui.set_private_channel_names(private_channel_names);
+
+        if let Some(user) = &guard.current_user {
+            ui.set_avatar_image(user.load_avatar_image());
+        }
     }
 
     let weak_ui = ui.as_weak();
@@ -63,6 +67,10 @@ pub fn run_app(
                                     .collect::<Vec<SharedString>>(),
                             ));
                         ui.set_private_channel_names(private_channel_names);
+
+                        if let Some(user) = &guard.current_user {
+                            ui.set_avatar_image(user.load_avatar_image());
+                        }
                     }
                 })
                 .unwrap();
