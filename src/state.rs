@@ -23,7 +23,7 @@ static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
         .expect("Failed to create global HTTP client")
 });
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct User {
     pub id: String,
     pub username: String,
@@ -58,6 +58,10 @@ impl User {
     }
 
     pub async fn get_avatar(&self) -> Result<(), Box<dyn Error>> {
+        if self.id.is_empty() || self.avatar_hash.is_empty() {
+            return Ok(());
+        }
+
         let path = self.local_avatar_path();
 
         if path.exists() {
@@ -76,8 +80,6 @@ impl User {
         let file_path = format!("{}/{}_{}.png", folder, self.id, self.avatar_hash);
         let mut file = File::create(&file_path).await?;
         file.write_all(&bytes).await?;
-
-        println!("Hopefully saved avatar");
 
         Ok(())
     }

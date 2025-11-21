@@ -8,6 +8,7 @@ export component AppWindow inherits Window {
     in property <string> visible-name: "Connecting...";
     in property <image> avatar-image;
     in property <[string]> private-channel-names: ["Connecting..."];
+    in property <[image]> private-channel-avatars;
 
     property <color> primary-color: #5865f2;
     property <color> background-color: #36393f;
@@ -58,16 +59,31 @@ export component AppWindow inherits Window {
                     spacing: 5px;
                     alignment: start;
 
-                    for private-channel-name in private-channel-names: Rectangle {
+                    for private-channel[index] in private-channel-names: Rectangle {
                         background: red;
                         height: 35px;
                         border-radius: 5px;
                         clip: true;
 
+                        Rectangle {
+                            width: 30px;
+                            height: 30px;
+                            x: 10px;
+                            y: 2.5px;
+                            border-radius: 50px;
+                            clip: true;
+                            background: #2e2d2d;
+                            Image {
+                                source: private-channel-avatars[index];
+                                width: parent.width;
+                                height: parent.height;
+                            }
+                        }
+
                         Text {
-                            text: private-channel-name;
+                            text: private-channel;
                             font-size: 14px;
-                            x: 20px;
+                            x: 50px;
                             width: parent.width - 40px;
                             overflow: TextOverflow.elide;
                         }
@@ -106,6 +122,8 @@ export component AppWindow inherits Window {
             background: #2e2d2d;
             Image {
                 source: avatar-image;
+                width: parent.width;
+                height: parent.height;
             }
         }
 

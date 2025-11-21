@@ -1,6 +1,10 @@
-use serde_json::Value;
+use std::collections::HashSet;
 
-use crate::state::{ChannelType, PrivateChannel, User};
+use futures_util::future::join_all;
+use serde_json::Value;
+use tokio::spawn;
+
+use crate::state::{AppState, ChannelType, PrivateChannel, UpdateSender, User};
 
 pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
     let mut channels = Vec::new();
@@ -58,7 +62,7 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
                                 id,
                                 username,
                                 global_name,
-                                avatar_hash
+                                avatar_hash,
                             })
                         } else {
                             None
@@ -91,4 +95,41 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
     }
 
     return channels;
+}
+
+pub fn load_private_channel_avatars(app_state: AppState, update_sender: UpdateSender) {
+    spawn(async move {
+        let recipients: Vec<User> = {
+            let guard = app_state.read().await;
+
+            let mut seen = HashSet::<String>::new();
+            let mut uniques = Vec::<User>::new();
+
+            for user in guard
+                .private_channels
+                .iter()
+                .flat_map(|channel| channel.recipients.iter())
+            {
+                if seen.insert(user.id.clone()) {
+                    uniques.push(user.clone());
+                }
+            }
+
+            uniques
+        };
+
+        let futures = recipients
+            .into_iter()
+            .map(|user| {
+                let update_sender = update_sender.clone();
+                async move {
+                    let _ = user.get_avatar().await;
+
+                    let _ = update_sender.send(());
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let _ = join_all(futures).await;
+    });
 }

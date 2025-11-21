@@ -1,15 +1,15 @@
 use std::{error::Error, sync::Arc};
 
-use futures_util::{stream::SplitStream, StreamExt};
-use tokio::net::TcpStream;
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
-
+use crate::websocket::load_initial_data::get_private_channels::load_private_channel_avatars;
 use crate::{
     state::{AppState, UpdateSender},
     websocket::{
         load_initial_data::load_initial_data::load_initial_data, sequence_tracker::SequenceTracker,
     },
 };
+use futures_util::{stream::SplitStream, StreamExt};
+use tokio::net::TcpStream;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 /// Handles incomming messages.
 ///
@@ -31,15 +31,13 @@ pub async fn handle_incomming_messages(
     read: &mut SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     sequence_tracker: Arc<SequenceTracker>,
     app_state: AppState,
-    update_sender: UpdateSender
+    update_sender: UpdateSender,
 ) -> Result<(), Box<dyn Error>> {
     while let Some(message) = read.next().await {
         match message {
             Ok(message) => {
                 if let Ok(text) = message.to_text() {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(text) {
-                        println!("Parsed JSON: {}", serde_json::to_string_pretty(&json)?);
-
                         if let Some(s) = json["s"].as_u64() {
                             if s > sequence_tracker.get() {
                                 sequence_tracker.update(s);
@@ -60,8 +58,13 @@ pub async fn handle_incomming_messages(
 
                                 let _ = update_sender.send(());
 
-                                let app_data = app_state.read().await;
-                                println!("{:?}", *app_data);
+                                load_private_channel_avatars(
+                                    app_state.clone(),
+                                    update_sender.clone(),
+                                );
+
+                                //let app_data = app_state.read().await;
+                                //println!("{:?}", *app_data);
                             } else if op == 0 {
                                 // Should check event type "t".
                                 //if let Some(author_username) =
