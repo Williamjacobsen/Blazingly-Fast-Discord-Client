@@ -35,7 +35,7 @@ impl User {
     }
 
     fn local_avatar_path(&self) -> PathBuf {
-        if self.avatar_hash.is_empty() {
+        if self.id.is_empty() || self.avatar_hash.is_empty() {
             return PathBuf::new();
         }
 
@@ -44,16 +44,16 @@ impl User {
         } else {
             "png"
         };
+
         PathBuf::from(format!(
-            "./assets/channel_icons/{}_{}.{}",
+            "./assets/avatars/{}_{}.{}",
             self.id, self.avatar_hash, extension
         ))
     }
 
     pub fn load_avatar_image(&self) -> Image {
         let path = self.local_avatar_path();
-
-        if path.exists() {
+        if !path.as_os_str().is_empty() && path.exists() {
             Image::load_from_path(&path).unwrap_or_default()
         } else {
             Image::default()
@@ -66,37 +66,29 @@ impl User {
         }
 
         let path = self.local_avatar_path();
-
         if path.exists() {
             return Ok(());
         }
 
-        let (extension, url) = if self.avatar_hash.starts_with("a_") {
-            (
-                "gif",
-                format!(
-                    "https://cdn.discordapp.com/avatars/{}/{}.webp?size=64",
-                    self.id, self.avatar_hash
-                ),
-            )
+        let (extension, format_param) = if self.avatar_hash.starts_with("a_") {
+            ("gif", "gif")
         } else {
-            (
-                "png",
-                format!(
-                    "https://cdn.discordapp.com/avatars/{}/{}.png?size=64",
-                    self.id, self.avatar_hash
-                ),
-            )
+            ("png", "png")
         };
 
-        let bytes = HTTP_CLIENT.get(url).send().await?.bytes().await?;
+        let url = format!(
+            "https://cdn.discordapp.com/avatars/{}/{}.{}?size=64",
+            self.id, self.avatar_hash, format_param
+        );
+
+        let bytes = HTTP_CLIENT.get(&url).send().await?.bytes().await?;
 
         let folder = "./assets/avatars";
         tokio::fs::create_dir_all(folder).await?;
+
         let file_path = format!("{}/{}_{}.{}", folder, self.id, self.avatar_hash, extension);
         let mut file = File::create(&file_path).await?;
         file.write_all(&bytes).await?;
-
         Ok(())
     }
 }
@@ -147,6 +139,7 @@ impl PrivateChannel {
         } else {
             "png"
         };
+
         PathBuf::from(format!(
             "./assets/channel_icons/{}_{}.{}",
             self.id, self.icon_hash, extension
@@ -155,8 +148,7 @@ impl PrivateChannel {
 
     pub fn load_icon_image(&self) -> Image {
         let path = self.local_icon_path();
-
-        if path.exists() {
+        if !path.as_os_str().is_empty() && path.exists() {
             Image::load_from_path(&path).unwrap_or_default()
         } else {
             Image::default()
@@ -164,45 +156,34 @@ impl PrivateChannel {
     }
 
     pub async fn get_icon(&self) -> Result<(), Box<dyn Error>> {
-        if self.icon_hash.is_empty() {
+        if self.icon_hash.is_empty() || self.id.is_empty() {
             return Ok(());
         }
 
         let path = self.local_icon_path();
-
         if path.exists() {
             return Ok(());
         }
 
-        let (extension, url) = if self.icon_hash.starts_with("a_") {
-            (
-                "gif",
-                format!(
-                    "https://cdn.discordapp.com/channel-icons/{}/{}.webp?size=64",
-                    self.id, self.icon_hash
-                ),
-            )
+        let (extension, format_param) = if self.icon_hash.starts_with("a_") {
+            ("gif", "gif")
         } else {
-            (
-                "png",
-                format!(
-                    "https://cdn.discordapp.com/channel-icons/{}/{}.png?size=64",
-                    self.id, self.icon_hash
-                ),
-            )
+            ("png", "png")
         };
 
-        let bytes = HTTP_CLIENT.get(url).send().await?.bytes().await?;
+        let url = format!(
+            "https://cdn.discordapp.com/channel-icons/{}/{}.{}?size=64",
+            self.id, self.icon_hash, format_param
+        );
+
+        let bytes = HTTP_CLIENT.get(&url).send().await?.bytes().await?;
 
         let folder = "./assets/channel_icons";
         tokio::fs::create_dir_all(folder).await?;
-        let file_path = format!(
-            "{}/{}_{}.{}",
-            folder, self.sort_id, self.icon_hash, extension
-        );
+
+        let file_path = format!("{}/{}_{}.{}", folder, self.id, self.icon_hash, extension);
         let mut file = File::create(&file_path).await?;
         file.write_all(&bytes).await?;
-
         Ok(())
     }
 }
