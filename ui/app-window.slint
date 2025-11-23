@@ -59,33 +59,44 @@ export component AppWindow inherits Window {
                     spacing: 5px;
                     alignment: start;
 
-                    for private-channel[index] in private-channel-names: Rectangle {
-                        background: red;
+                    for private-channel[index] in private-channel-names: TouchArea {
+                        width: 100%;
                         height: 35px;
-                        border-radius: 5px;
-                        clip: true;
+                        
+                        property <bool> hovering: self.has-hover;
 
                         Rectangle {
-                            width: 30px;
-                            height: 30px;
-                            x: 10px;
-                            y: 2.5px;
-                            border-radius: 50px;
-                            clip: true;
-                            background: #2e2d2d;
-                            Image {
-                                source: private-channel-avatars[index];
-                                width: parent.width;
-                                height: parent.height;
+                            background: hovering ? #ffffff18 : transparent;
+                            border-radius: 5px;
+                            animate background {
+                                duration: 150ms;
+                                easing: ease-in-out;
                             }
-                        }
 
-                        Text {
-                            text: private-channel;
-                            font-size: 14px;
-                            x: 50px;
-                            width: parent.width - 40px;
-                            overflow: TextOverflow.elide;
+                            Rectangle {
+                                width: 30px;
+                                height: 30px;
+                                x: 10px;
+                                y: 2.5px;
+                                border-radius: 50px;
+                                clip: true;
+                                background: #2e2d2d;
+                                Image {
+                                    source: private-channel-avatars[index];
+                                    width: parent.width;
+                                    height: parent.height;
+                                }
+                            }
+
+                            Text {
+                                text: private-channel;
+                                font-size: 14px;
+                                color: hovering ? #ffffff : #b9bbbe;
+                                x: 50px;
+                                y: 8px;
+                                width: parent.width - 60px;
+                                overflow: TextOverflow.elide;
+                            }
                         }
                     }
                 }
