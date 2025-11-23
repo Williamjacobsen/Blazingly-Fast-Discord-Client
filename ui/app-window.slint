@@ -4,18 +4,19 @@ export component AppWindow inherits Window {
     title: "Discord Client";
     min-width: 800px;
     min-height: 600px;
+    background: background-color;
 
     in property <string> visible-name: "Connecting...";
     in property <image> avatar-image;
     in property <[string]> private-channel-names: ["Connecting..."];
     in property <[image]> private-channel-avatars;
 
+    callback private-channel-clicked(int);
+
     property <color> primary-color: #5865f2;
     property <color> background-color: #36393f;
     property <color> card-color: #2f3136;
     property <color> text-color: #ffffff;
-
-    background: background-color;
 
     // Guilds column
     Rectangle {
@@ -62,8 +63,12 @@ export component AppWindow inherits Window {
                     for private-channel[index] in private-channel-names: TouchArea {
                         width: 100%;
                         height: 35px;
-                        
+
                         property <bool> hovering: self.has-hover;
+
+                        clicked => {
+                            root.private-channel-clicked(index);
+                        }
 
                         Rectangle {
                             background: hovering ? #ffffff18 : transparent;

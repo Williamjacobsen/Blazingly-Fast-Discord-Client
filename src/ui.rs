@@ -59,6 +59,18 @@ pub fn run_app(
 
     update_ui(&ui, &app_state);
 
+    let app_state_for_callback = app_state.clone();
+    ui.on_private_channel_clicked(move |index| {
+        let guard = app_state_for_callback.blocking_read();
+        if let Some(channel) = guard.private_channels.get(index as usize) {
+            println!(
+                "Private channel clicked: {} (index: {})",
+                channel.display_name(),
+                index
+            );
+        }
+    });
+
     let weak_ui = ui.as_weak();
 
     let app_state_clone = app_state.clone();
