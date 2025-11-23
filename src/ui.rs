@@ -1,6 +1,6 @@
 use slint::{Image, ModelRc, SharedString, VecModel};
 
-use crate::state::{AppState, UpdateReceiver};
+use crate::state::{AppState, ChannelType, UpdateReceiver};
 use std::error::Error;
 slint::include_modules!();
 
@@ -38,23 +38,22 @@ pub fn run_app(
             guard
                 .private_channels
                 .iter()
-                .map(|channel| {
-                    // TODO: Fix - choose the first recipient's avatar image (or default image)
-                    channel
+                .map(|channel| match channel.channel_type {
+                    ChannelType::Group => {
+                        if !channel.icon_hash.is_empty() {
+                            channel.load_icon_image()
+                        } else {
+                            Image::default()
+                        }
+                    }
+                    ChannelType::Private => channel
                         .recipients
                         .first()
                         .map(|user| user.load_avatar_image())
-                        .unwrap_or_default()
+                        .unwrap_or_default(),
                 })
                 .collect::<Vec<Image>>(),
         ));
-
-        // TODO: get private channel icons and avatars:
-        // if the private channel is a group, load channel icon.
-        // if the private channel is private, load avatar of recipient.
-
-
-
         ui.set_private_channel_avatars(private_channel_avatars);
     };
 
