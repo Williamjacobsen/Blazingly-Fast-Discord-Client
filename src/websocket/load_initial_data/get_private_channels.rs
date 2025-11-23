@@ -15,20 +15,24 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
     {
         for private_channel in private_channels {
             if let Some(recipients) = private_channel.get("recipients").and_then(|r| r.as_array()) {
+                // TODO: if type == 3, then it is a group, if type == 1, then it is private.
                 let channel_type = if recipients.len() >= 2 {
                     ChannelType::Group
                 } else {
                     ChannelType::Private
                 };
 
-                let name = if recipients.len() >= 2 {
-                    private_channel
-                        .get("name")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string())
-                } else {
-                    None
-                };
+                let id = private_channel
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+
+                let name = private_channel
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
 
                 let user_recipients: Vec<User> = recipients
                     .iter()
@@ -82,12 +86,20 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
                             .unwrap_or(0),
                     );
 
+                let icon = private_channel
+                    .get("icon")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+
                 if !user_recipients.is_empty() {
                     channels.push(PrivateChannel {
+                        id,
                         channel_type,
                         name,
                         recipients: user_recipients,
                         sort_id,
+                        icon_hash: icon,
                     });
                 }
             }
@@ -99,6 +111,7 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
 
 pub fn load_private_channel_avatars(app_state: AppState, update_sender: UpdateSender) {
     spawn(async move {
+        // Get recipients avatars
         let recipients: Vec<User> = {
             let guard = app_state.read().await;
 
@@ -118,18 +131,35 @@ pub fn load_private_channel_avatars(app_state: AppState, update_sender: UpdateSe
             uniques
         };
 
-        let futures = recipients
-            .into_iter()
-            .map(|user| {
-                let update_sender = update_sender.clone();
-                async move {
-                    let _ = user.get_avatar().await;
+        let mut futures = Vec::new();
 
-                    let _ = update_sender.send(());
-                }
-            })
-            .collect::<Vec<_>>();
+        for user in recipients.into_iter() {
+            let update_sender = update_sender.clone();
+            futures.push(async move {
+                let _ = user.get_avatar().await;
+                let _ = update_sender.send(());
+            });
+        }
 
         let _ = join_all(futures).await;
+
+        // Get channels icons
+        let channel_list: Vec<PrivateChannel> = {
+            let guard = app_state.read().await;
+            guard.private_channels.clone()
+        };
+
+        let mut channel_futures = Vec::new();
+
+        for channel in channel_list.into_iter() {
+            let update_sender = update_sender.clone();
+
+            channel_futures.push(async move {
+                let _ = channel.get_icon().await;
+                let _ = update_sender.send(());
+            });
+        }
+
+        let _ = join_all(channel_futures).await;
     });
 }

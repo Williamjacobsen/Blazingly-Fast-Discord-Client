@@ -92,7 +92,7 @@ impl User {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ChannelType {
     Private,
     Group,
@@ -100,16 +100,20 @@ pub enum ChannelType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrivateChannel {
+    pub id: String,
     pub channel_type: ChannelType,
-    pub name: Option<String>,
+    pub name: String,
     pub recipients: Vec<User>,
     /// sort_id is either a snowflake id of the last message sent, or a snowflake id of the channels creation.
     pub sort_id: u64,
+    pub icon_hash: String,
 }
 
 impl PrivateChannel {
     pub fn display_name(&self) -> String {
-        self.name.clone().unwrap_or_else(|| {
+        if !self.name.is_empty() {
+            self.name.clone()
+        } else {
             let recipient_names: Vec<String> = self
                 .recipients
                 .iter()
@@ -121,7 +125,67 @@ impl PrivateChannel {
             } else {
                 recipient_names.join(", ")
             }
-        })
+        }
+    }
+
+    fn local_icon_path(&self) -> PathBuf {
+        PathBuf::from(format!(
+            "./assets/channel_icons/{}_{}{}.png",
+            self.sort_id, self.icon_hash, ""
+        ))
+    }
+
+    pub fn load_icon_image(&self) -> Image {
+        let path = self.local_icon_path();
+
+        if path.exists() {
+            Image::load_from_path(&path).unwrap_or_default()
+        } else {
+            Image::default()
+        }
+    }
+
+    pub async fn get_icon(&self) -> Result<(), Box<dyn Error>> {
+        if self.icon_hash.is_empty() {
+            return Ok(());
+        }
+
+        let path = self.local_icon_path();
+
+        if path.exists() {
+            return Ok(());
+        }
+
+        let (extension, url) = if self.icon_hash.starts_with("a_") {
+            (
+                "gif",
+                format!(
+                    "https://cdn.discordapp.com/channel-icons/{}/{}.webp?size=64",
+                    self.id, self.icon_hash
+                ),
+            )
+        } else {
+            (
+                "png",
+                format!(
+                    "https://cdn.discordapp.com/channel-icons/{}/{}.png?size=64",
+                    self.id, self.icon_hash
+                ),
+            )
+        };
+
+        let bytes = HTTP_CLIENT.get(url).send().await?.bytes().await?;
+
+        let folder = "./assets/channel_icons";
+        tokio::fs::create_dir_all(folder).await?;
+        let file_path = format!(
+            "{}/{}_{}.{}",
+            folder, self.sort_id, self.icon_hash, extension
+        );
+        let mut file = File::create(&file_path).await?;
+        file.write_all(&bytes).await?;
+
+        Ok(())
     }
 }
 
