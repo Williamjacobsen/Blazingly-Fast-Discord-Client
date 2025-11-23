@@ -15,11 +15,15 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
     {
         for private_channel in private_channels {
             if let Some(recipients) = private_channel.get("recipients").and_then(|r| r.as_array()) {
-                // TODO: if type == 3, then it is a group, if type == 1, then it is private.
-                let channel_type = if recipients.len() >= 2 {
-                    ChannelType::Group
-                } else {
-                    ChannelType::Private
+                let _type = private_channel
+                    .get("type")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or_default();
+
+                let channel_type = match _type {
+                    3 => ChannelType::Group,
+                    1 => ChannelType::Private,
+                    _ => ChannelType::Private,
                 };
 
                 let id = private_channel
