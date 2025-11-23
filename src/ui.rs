@@ -53,6 +53,8 @@ pub fn run_app(
         // if the private channel is a group, load channel icon.
         // if the private channel is private, load avatar of recipient.
 
+
+
         ui.set_private_channel_avatars(private_channel_avatars);
     };
 

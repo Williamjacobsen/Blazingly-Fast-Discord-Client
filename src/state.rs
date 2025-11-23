@@ -35,9 +35,18 @@ impl User {
     }
 
     fn local_avatar_path(&self) -> PathBuf {
+        if self.avatar_hash.is_empty() {
+            return PathBuf::new();
+        }
+
+        let extension = if self.avatar_hash.starts_with("a_") {
+            "gif"
+        } else {
+            "png"
+        };
         PathBuf::from(format!(
-            "./assets/avatars/{}_{}.png",
-            self.id, self.avatar_hash
+            "./assets/channel_icons/{}_{}.{}",
+            self.id, self.avatar_hash, extension
         ))
     }
 
@@ -129,9 +138,18 @@ impl PrivateChannel {
     }
 
     fn local_icon_path(&self) -> PathBuf {
+        if self.icon_hash.is_empty() {
+            return PathBuf::new();
+        }
+
+        let extension = if self.icon_hash.starts_with("a_") {
+            "gif"
+        } else {
+            "png"
+        };
         PathBuf::from(format!(
-            "./assets/channel_icons/{}_{}{}.png",
-            self.sort_id, self.icon_hash, ""
+            "./assets/channel_icons/{}_{}.{}",
+            self.id, self.icon_hash, extension
         ))
     }
 
