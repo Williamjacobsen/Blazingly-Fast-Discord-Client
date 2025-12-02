@@ -110,7 +110,7 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
         }
     }
 
-    return channels;
+    channels
 }
 
 pub fn load_private_channel_avatars(app_state: AppState, update_sender: UpdateSender) {

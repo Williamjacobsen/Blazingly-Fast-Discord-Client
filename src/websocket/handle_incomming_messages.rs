@@ -72,7 +72,6 @@ pub async fn handle_incomming_messages(
                                 //{
                                 //    println!("Author username: {}", author_username)
                                 //}
-                            } else {
                             }
 
                             // temp:
