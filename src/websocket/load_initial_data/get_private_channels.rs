@@ -104,6 +104,7 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
                         recipients: user_recipients,
                         sort_id,
                         icon_hash: icon,
+                        messages: None
                     });
                 }
             }

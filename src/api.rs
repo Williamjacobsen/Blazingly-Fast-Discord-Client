@@ -3,6 +3,7 @@ use reqwest::{
     header::{HeaderMap, HeaderValue, AUTHORIZATION},
 };
 use std::{env, error::Error};
+use tokio_tungstenite::tungstenite::handshake::headers;
 
 use dotenv::dotenv;
 
@@ -26,7 +27,33 @@ pub fn fetch_profile_information(user_id: &str) -> Result<(), Box<dyn Error>> {
         let text = response.text()?;
         println!("{}", text);
     } else {
-        println!("Request failed with status: {}", response.status());
+        println!("Request for fetch_profile_information failed with status: {}", response.status());
+    }
+
+    Ok(())
+}
+
+pub fn get_recent_messages(channel_id: &str, limit: Option<u8>) -> Result<(), Box<dyn Error>> {
+    let limit = limit.unwrap_or(50);
+
+    let authorization_token = env::var("DISCORD_TOKEN")?;
+    let url = format!(
+        "https://discord.com/api/v9/channels/{}/messages?limit={}",
+        channel_id, limit
+    );
+
+    let client = Client::new(); // Unoptimal to re-initialize client for every request?
+
+    let mut headers = HeaderMap::new();
+    headers.insert(AUTHORIZATION, HeaderValue::from_str(&authorization_token)?);
+
+    let response = client.get(&url).headers(headers).send()?;
+
+    if response.status().is_success() {
+        let text = response.text()?;
+        println!("{}", text);
+    } else {
+        println!("Request for get_recent_messages failed with status: {}", response.status());
     }
 
     Ok(())

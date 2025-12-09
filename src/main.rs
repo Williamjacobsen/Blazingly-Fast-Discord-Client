@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     api::initialize()?;
 
     api::fetch_profile_information("545218808806375439")?;
+    api::get_recent_messages("1361299379020890212", None)?;
 
     let app_state = state::create_app_state();
     let (update_sender, update_receiver) = state::create_update_channel();

@@ -93,6 +93,22 @@ impl User {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Message {
+    id: String,
+    /**
+     * 0:  Text message
+     * 3:  Call
+     * 19: Reply
+     */
+    _type: u8,
+    content: String,
+    mentions: Option<Vec<String>>,
+    timestamp: String,
+    edited_timestamp: Option<String>,
+    author: User, // Memory duplicate. Should just use ids.
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ChannelType {
     Private,
@@ -108,6 +124,7 @@ pub struct PrivateChannel {
     /// sort_id is either a snowflake id of the last message sent, or a snowflake id of the channels creation.
     pub sort_id: u64,
     pub icon_hash: String,
+    pub messages: Option<Vec<Message>>,
 }
 
 impl PrivateChannel {
