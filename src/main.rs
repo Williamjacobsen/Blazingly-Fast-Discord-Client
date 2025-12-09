@@ -10,12 +10,20 @@ mod websocket;
 slint::include_modules!();
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let app_state = state::create_app_state();
+
     api::initialize()?;
 
-    api::fetch_profile_information("545218808806375439")?;
-    api::get_recent_messages("1361299379020890212", None)?;
+    let app_state_for_messages = app_state.clone();
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            if let Err(e) = api::get_recent_messages(app_state_for_messages, "1361299379020890212", None).await {
+                eprintln!("Failed to get recent messages: {}", e);
+            }
+        });
+    });
 
-    let app_state = state::create_app_state();
     let (update_sender, update_receiver) = state::create_update_channel();
 
     let app_state_clone = app_state.clone();
@@ -24,7 +32,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         move || {
             let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(async {
-                if let Err(e) = websocket::websocket::connect(app_state_clone, update_sender).await {
+                if let Err(e) = websocket::websocket::connect(app_state_clone, update_sender).await
+                {
                     eprintln!("WebSocket error: {}", e);
                 }
             });

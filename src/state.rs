@@ -9,7 +9,7 @@ use tokio::{
     sync::{mpsc, RwLock},
 };
 
-static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
+pub static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
     Client::builder()
         .pool_idle_timeout(std::time::Duration::from_secs(30))
         .pool_max_idle_per_host(8)
@@ -95,18 +95,20 @@ impl User {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
-    id: String,
+    pub id: String,
     /**
      * 0:  Text message
      * 3:  Call
      * 19: Reply
      */
-    _type: u8,
-    content: String,
-    mentions: Option<Vec<String>>,
-    timestamp: String,
-    edited_timestamp: Option<String>,
-    author: User, // Memory duplicate. Should just use ids.
+    pub _type: u8,
+    pub content: String,
+    pub mentions: Option<Vec<String>>,
+    pub mention_everyone: bool,
+    pub timestamp: String,
+    pub edited_timestamp: Option<String>,
+    //author: User, // Memory duplicate. Should just use ids.
+    pub author_id: String
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
