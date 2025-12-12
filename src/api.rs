@@ -11,22 +11,22 @@ pub fn initialize() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn get_recent_messages(app_state: AppState) {
-    std::thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            if let Err(e) = _get_recent_messages(app_state, "1361299379020890212", None).await {
-                eprintln!("Failed to get recent messages: {}", e);
-            }
-        });
-    });
-}
+//pub fn get_recent_messages(app_state: AppState) {
+//    std::thread::spawn(move || {
+//        let rt = tokio::runtime::Runtime::new().unwrap();
+//        rt.block_on(async {
+//            if let Err(e) = _get_recent_messages(app_state, "1361299379020890212", None).await {
+//                eprintln!("Failed to get recent messages: {}", e);
+//            }
+//        });
+//    });
+//}
 
-async fn _get_recent_messages(
+pub async fn get_recent_messages(
     app_state: AppState,
     channel_id: &str,
     limit: Option<u8>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<Vec<Message>, Box<dyn Error>> {
     let limit = limit.unwrap_or(50).min(100);
 
     let authorization_token = env::var("DISCORD_TOKEN")?;
@@ -46,7 +46,12 @@ async fn _get_recent_messages(
             channel_id,
             response.status()
         );
-        return Ok(());
+        return Err(format!(
+            "Failed to fetch messages for channel {}: {}",
+            channel_id,
+            response.status()
+        )
+        .into());
     }
 
     let json: Value = response.json().await?;
@@ -65,12 +70,12 @@ async fn _get_recent_messages(
         .iter_mut()
         .find(|ch| ch.id == channel_id)
     {
-        channel.messages = Some(messages);
+        channel.messages = Some(messages.clone());
     } else {
         eprintln!("Channel {} not found in app_state", channel_id);
     }
 
-    Ok(())
+    Ok(messages)
 }
 
 fn parse_message(value: &Value) -> Result<Message, Box<dyn Error>> {

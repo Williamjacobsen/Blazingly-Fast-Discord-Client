@@ -1,6 +1,9 @@
-use slint::{Image, ModelRc, SharedString, VecModel};
+use slint::{Image, ModelRc, SharedString, VecModel, Weak};
 
-use crate::{api, state::{AppState, ChannelType, UpdateReceiver}};
+use crate::{
+    api,
+    state::{AppState, ChannelType, UpdateReceiver},
+};
 use std::error::Error;
 slint::include_modules!();
 
@@ -18,6 +21,7 @@ pub fn run_app(app_state: AppState, update_receiver: UpdateReceiver) -> Result<(
 }
 
 fn on_private_channel_clicked(ui: &AppWindow, app_state: AppState) {
+    let weak_ui = ui.as_weak();
     ui.on_private_channel_clicked(move |index| {
         let guard = app_state.blocking_read();
         if let Some(channel) = guard.private_channels.get(index as usize) {
@@ -27,8 +31,25 @@ fn on_private_channel_clicked(ui: &AppWindow, app_state: AppState) {
                 index
             );
 
-            api::get_recent_messages(app_state.clone());
+            let channel_id = channel.id.clone();
+
+            drop(guard);
+
+            get_recent_messages_async(weak_ui.clone(), app_state.clone(), channel_id);
         }
+    });
+}
+
+pub fn get_recent_messages_async(_ui: Weak<AppWindow>, app_state: AppState, channel_id: String) {
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let messages = api::get_recent_messages(app_state, &channel_id, Some(50)).await;
+
+            if messages.is_ok() {
+                println!("{:?}", messages);
+            }
+        });
     });
 }
 
