@@ -4,64 +4,22 @@ use crate::state::{AppState, ChannelType, UpdateReceiver};
 use std::error::Error;
 slint::include_modules!();
 
-pub fn run_app(
-    app_state: AppState,
-    mut update_receiver: UpdateReceiver,
-) -> Result<(), Box<dyn Error>> {
+pub fn run_app(app_state: AppState, update_receiver: UpdateReceiver) -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
 
-    let update_ui = |ui: &AppWindow, app_state: &AppState| {
-        let guard = app_state.blocking_read();
+    update_ui(&ui, app_state.clone());
 
-        ui.set_visible_name(SharedString::from(
-            guard
-                .current_user
-                .as_ref()
-                .map(|user| user.display_name())
-                .unwrap_or("<display_name>"),
-        ));
+    on_private_channel_clicked(&ui, app_state.clone());
 
-        if let Some(user) = &guard.current_user {
-            ui.set_avatar_image(user.load_avatar_image());
-        }
+    sync_ui(app_state, &ui, update_receiver);
 
-        let private_channel_names: ModelRc<SharedString> = ModelRc::new(VecModel::from(
-            guard
-                .private_channels
-                .iter()
-                .map(|v| SharedString::from(v.display_name()))
-                .collect::<Vec<SharedString>>(),
-        ));
-        ui.set_private_channel_names(private_channel_names);
+    ui.run()?;
+    Ok(())
+}
 
-        let private_channel_avatars: ModelRc<Image> = ModelRc::new(VecModel::from(
-            guard
-                .private_channels
-                .iter()
-                .map(|channel| match channel.channel_type {
-                    ChannelType::Group => {
-                        if !channel.icon_hash.is_empty() {
-                            channel.load_icon_image()
-                        } else {
-                            Image::default()
-                        }
-                    }
-                    ChannelType::Private => channel
-                        .recipients
-                        .first()
-                        .map(|user| user.load_avatar_image())
-                        .unwrap_or_default(),
-                })
-                .collect::<Vec<Image>>(),
-        ));
-        ui.set_private_channel_avatars(private_channel_avatars);
-    };
-
-    update_ui(&ui, &app_state);
-
-    let app_state_for_callback = app_state.clone();
+fn on_private_channel_clicked(ui: &AppWindow, app_state: AppState) {
     ui.on_private_channel_clicked(move |index| {
-        let guard = app_state_for_callback.blocking_read();
+        let guard = app_state.blocking_read();
         if let Some(channel) = guard.private_channels.get(index as usize) {
             println!(
                 "Private channel clicked: {} (index: {})",
@@ -70,28 +28,73 @@ pub fn run_app(
             );
         }
     });
+}
 
+fn sync_ui(app_state: AppState, ui: &AppWindow, mut update_receiver: UpdateReceiver) {
     let weak_ui = ui.as_weak();
-
-    let app_state_clone = app_state.clone();
+    let app_state = app_state.clone();
 
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             while let Some(()) = update_receiver.recv().await {
                 let weak_ui = weak_ui.clone();
-                let app_state = app_state_clone.clone();
+                let app_state = app_state.clone();
 
                 slint::invoke_from_event_loop(move || {
                     if let Some(ui) = weak_ui.upgrade() {
-                        update_ui(&ui, &app_state);
+                        update_ui(&ui, app_state);
                     }
                 })
                 .unwrap();
             }
         });
     });
+}
 
-    ui.run()?;
-    Ok(())
+fn update_ui(ui: &AppWindow, app_state: AppState) {
+    let guard = app_state.blocking_read();
+
+    ui.set_visible_name(SharedString::from(
+        guard
+            .current_user
+            .as_ref()
+            .map(|user| user.display_name())
+            .unwrap_or("<display_name>"),
+    ));
+
+    if let Some(user) = &guard.current_user {
+        ui.set_avatar_image(user.load_avatar_image());
+    }
+
+    let private_channel_names: ModelRc<SharedString> = ModelRc::new(VecModel::from(
+        guard
+            .private_channels
+            .iter()
+            .map(|v| SharedString::from(v.display_name()))
+            .collect::<Vec<SharedString>>(),
+    ));
+    ui.set_private_channel_names(private_channel_names);
+
+    let private_channel_avatars: ModelRc<Image> = ModelRc::new(VecModel::from(
+        guard
+            .private_channels
+            .iter()
+            .map(|channel| match channel.channel_type {
+                ChannelType::Group => {
+                    if !channel.icon_hash.is_empty() {
+                        channel.load_icon_image()
+                    } else {
+                        Image::default()
+                    }
+                }
+                ChannelType::Private => channel
+                    .recipients
+                    .first()
+                    .map(|user| user.load_avatar_image())
+                    .unwrap_or_default(),
+            })
+            .collect::<Vec<Image>>(),
+    ));
+    ui.set_private_channel_avatars(private_channel_avatars);
 }

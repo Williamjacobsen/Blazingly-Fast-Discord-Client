@@ -11,7 +11,18 @@ pub fn initialize() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub async fn get_recent_messages(
+pub fn get_recent_messages(app_state: AppState) {
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            if let Err(e) = _get_recent_messages(app_state, "1361299379020890212", None).await {
+                eprintln!("Failed to get recent messages: {}", e);
+            }
+        });
+    });
+}
+
+async fn _get_recent_messages(
     app_state: AppState,
     channel_id: &str,
     limit: Option<u8>,
