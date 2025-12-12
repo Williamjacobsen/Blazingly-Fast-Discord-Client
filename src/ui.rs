@@ -1,6 +1,6 @@
 use slint::{Image, ModelRc, SharedString, VecModel};
 
-use crate::state::{AppState, ChannelType, UpdateReceiver};
+use crate::{api, state::{AppState, ChannelType, UpdateReceiver}};
 use std::error::Error;
 slint::include_modules!();
 
@@ -26,6 +26,8 @@ fn on_private_channel_clicked(ui: &AppWindow, app_state: AppState) {
                 channel.display_name(),
                 index
             );
+
+            api::get_recent_messages(app_state.clone());
         }
     });
 }
