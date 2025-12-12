@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use slint::Image;
-use std::{error::Error, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, error::Error, path::PathBuf, sync::Arc};
 use tokio::{
     fs::File,
     io::AsyncWriteExt,
@@ -16,6 +16,10 @@ pub static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
         .build()
         .expect("Failed to create global HTTP client")
 });
+
+/* Refactor TODO:
+ * Store users in HashMap where the key is the id.
+*/
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct User {
@@ -111,7 +115,7 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn get_author(&self) {}
+    pub fn get_author(&self, app_state: AppData) {}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -125,7 +129,7 @@ pub struct PrivateChannel {
     pub id: String,
     pub channel_type: ChannelType,
     pub name: String,
-    pub recipients: Vec<User>,
+    pub recipients: Vec<User>, // TODO: Fix duplicate User.
     /// sort_id is either a snowflake id of the last message sent, or a snowflake id of the channels creation.
     pub sort_id: u64,
     pub icon_hash: String,
@@ -218,6 +222,7 @@ pub struct Guild {
 #[derive(Debug, Default)]
 pub struct AppData {
     pub current_user: Option<User>,
+    pub users: HashMap<String, User>,
     pub private_channels: Vec<PrivateChannel>,
     pub guilds: Vec<Guild>,
 }
