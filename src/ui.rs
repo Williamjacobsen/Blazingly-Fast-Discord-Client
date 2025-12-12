@@ -40,14 +40,38 @@ fn on_private_channel_clicked(ui: &AppWindow, app_state: AppState) {
     });
 }
 
-pub fn get_recent_messages_async(_ui: Weak<AppWindow>, app_state: AppState, channel_id: String) {
+pub fn get_recent_messages_async(
+    weak_ui: Weak<AppWindow>,
+    app_state: AppState,
+    channel_id: String,
+) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let messages = api::get_recent_messages(app_state, &channel_id, Some(50)).await;
+            match api::get_recent_messages(app_state, &channel_id, Some(50)).await {
+                Ok(messages) => {
+                    println!("{:?}", messages);
 
-            if messages.is_ok() {
-                println!("{:?}", messages);
+                    let message_data: Vec<MessageData> = messages
+                        .into_iter()
+                        .map(|msg| MessageData {
+                            author: SharedString::from(&msg.author_id),
+                            content: SharedString::from(&msg.content),
+                        })
+                        .rev().collect();
+
+                    if let Err(e) = slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = weak_ui.upgrade() {
+                            let messages_model = ModelRc::new(VecModel::from(message_data));
+                            ui.set_messages(messages_model);
+                        }
+                    }) {
+                        eprintln!("Failed to invoke from event loop: {}", e);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("get_recent_messages failed: {}", e);
+                }
             }
         });
     });

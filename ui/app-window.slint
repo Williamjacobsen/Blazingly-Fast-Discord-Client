@@ -1,5 +1,10 @@
 import { VerticalBox, HorizontalBox, ScrollView } from "std-widgets.slint";
 
+export struct MessageData {
+    author: string,
+    content: string,
+}
+
 export component AppWindow inherits Window {
     title: "Discord Client";
     min-width: 800px;
@@ -10,6 +15,7 @@ export component AppWindow inherits Window {
     in property <image> avatar-image;
     in property <[string]> private-channel-names: ["Connecting..."];
     in property <[image]> private-channel-avatars;
+    in property <[MessageData]> messages: [{ author: "System", content: "No messages..." }];
 
     callback private-channel-clicked(int);
 
@@ -17,6 +23,7 @@ export component AppWindow inherits Window {
     property <color> background-color: #36393f;
     property <color> card-color: #2f3136;
     property <color> text-color: #ffffff;
+    property <color> author-color: #00b0f4;
 
     // Guilds column
     Rectangle {
@@ -149,6 +156,54 @@ export component AppWindow inherits Window {
             font-size: 16px;
             vertical-alignment: center;
             horizontal-alignment: center;
+        }
+    }
+
+    // Messages area
+    Rectangle {
+        width: parent.width - 330px;
+        height: parent.height;
+        x: 330px;
+        y: 0;
+        background: background-color;
+
+        ScrollView {
+            width: parent.width - 20px;
+            height: parent.height - 20px;
+            x: 10px;
+            y: 10px;
+
+            VerticalBox {
+                spacing: 10px;
+                alignment: start;
+                width: parent.width;
+
+                for message in messages: Rectangle {
+                    width: 100%;
+                    height: author-text.preferred-height + message-text.preferred-height + 30px;
+                    background: transparent;
+
+                    author-text := Text {
+                        text: message.author;
+                        color: author-color;
+                        font-size: 14px;
+                        font-weight: 600;
+                        x: 10px;
+                        y: 10px;
+                        width: parent.width - 20px;
+                    }
+
+                    message-text := Text {
+                        text: message.content;
+                        color: text-color;
+                        font-size: 14px;
+                        x: 10px;
+                        y: author-text.y + author-text.preferred-height + 5px;
+                        width: parent.width - 20px;
+                        wrap: word-wrap;
+                    }
+                }
+            }
         }
     }
 }

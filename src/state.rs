@@ -107,8 +107,11 @@ pub struct Message {
     pub mention_everyone: bool,
     pub timestamp: String,
     pub edited_timestamp: Option<String>,
-    //author: User, // Memory duplicate. Should just use ids.
-    pub author_id: String
+    pub author_id: String,
+}
+
+impl Message {
+    pub fn get_author(&self) {}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
