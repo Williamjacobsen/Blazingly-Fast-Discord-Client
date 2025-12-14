@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
-    env::var("DISCORD_TOKEN").expect("PANIC: No DISCORD_TOKEN set.");
+    let authorization_token = env::var("DISCORD_TOKEN").expect("PANIC: No DISCORD_TOKEN set.");
 
     let gateway_url = "wss://gateway.discord.gg/?v=10&encoding=json";
 
@@ -44,6 +44,25 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
             }
         }
     });
+
+    /*
+     * Send `identify` with intent.
+     * This is done, to later receive all initial data requested (by intents).
+     */
+    let identify = serde_json::json!({
+        "op": 2,
+        "d": {
+            "token": authorization_token,
+            "properties": {
+                "$os": std::env::consts::OS,
+                "$browser": "blazingly-rust-discord-client",
+                "$device": "blazingly-rust-discord-client"
+            },
+            "intents": (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8) | (1 << 9) | (1 << 10) | (1 << 11) | (1 << 12) | (1 << 13) | (1 << 14) | (1 << 15) | (1 << 16) | (1 << 20) | (1 << 21) | (1 << 24) | (1 << 25)
+        }
+    });
+    transmitter.send(Message::Text(identify.to_string().into()))?;
+    println!("Sent IDENTIFY...");
 
     let sequence_tracker = Arc::new(Mutex::new(0u64));
 
