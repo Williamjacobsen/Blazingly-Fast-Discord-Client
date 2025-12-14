@@ -561,6 +561,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "blazingly-fast-discord-client"
+version = "0.1.0"
+dependencies = [
+ "dotenv",
+ "futures-util",
+ "image",
+ "once_cell",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "slint",
+ "slint-build",
+ "tokio",
+ "tokio-tungstenite",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4588,23 +4605,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "spin_on",
-]
-
-[[package]]
-name = "slint-rust-template"
-version = "0.1.0"
-dependencies = [
- "dotenv",
- "futures-util",
- "image",
- "once_cell",
- "reqwest",
- "serde",
- "serde_json",
- "slint",
- "slint-build",
- "tokio",
- "tokio-tungstenite",
 ]
 
 [[package]]
