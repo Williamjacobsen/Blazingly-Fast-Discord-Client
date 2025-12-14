@@ -53,16 +53,16 @@ pub async fn get_recent_messages(
         vec![]
     };
 
-    let mut state = app_state.write().await;
-    if let Some(channel) = state
-        .private_channels
-        .iter_mut()
-        .find(|ch| ch.id == channel_id)
-    {
-        channel.messages = Some(messages.clone());
-    } else {
-        eprintln!("Channel {} not found in app_state", channel_id);
-    }
+    //let mut state = app_state.write().await;
+    //if let Some(channel) = state
+    //    .private_channels
+    //    .iter_mut()
+    //    .find(|ch| ch.id == channel_id)
+    //{
+    //    channel.messages = Some(messages.clone());
+    //} else {
+    //    eprintln!("Channel {} not found in app_state", channel_id);
+    //}
 
     Ok(messages)
 }

@@ -52,8 +52,6 @@ pub fn get_recent_messages_async(
                 Ok(messages) => {
                     println!("{:?}", messages);
 
-                    // TOOD: Should it be stateless? or should i add messages to State?
-
                     let message_data: Vec<MessageData> = messages
                         .into_iter()
                         .map(|msg| MessageData {

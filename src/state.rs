@@ -114,9 +114,9 @@ pub struct Message {
     pub author_id: String,
 }
 
-impl Message {
-    pub fn get_author(&self, app_state: AppData) {}
-}
+//impl Message {
+//    pub fn get_author(&self, app_state: AppData) {}
+//}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ChannelType {
@@ -133,7 +133,7 @@ pub struct PrivateChannel {
     /// sort_id is either a snowflake id of the last message sent, or a snowflake id of the channels creation.
     pub sort_id: u64,
     pub icon_hash: String,
-    pub messages: Option<Vec<Message>>,
+    //pub messages: Option<Vec<Message>>,
 }
 
 impl PrivateChannel {
