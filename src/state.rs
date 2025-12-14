@@ -39,7 +39,7 @@ impl User {
     }
 
     fn local_avatar_path(&self) -> PathBuf {
-        if self.id != 0 || self.avatar_hash.is_empty() {
+        if self.id == 0 || self.avatar_hash.is_empty() {
             return PathBuf::new();
         }
 
@@ -65,8 +65,8 @@ impl User {
     }
 
     pub async fn get_avatar(&self) -> Result<(), Box<dyn Error>> {
-        if self.id != 0 || self.avatar_hash.is_empty() {
-            return Ok(());
+        if self.id == 0 || self.avatar_hash.is_empty() {
+            return Ok(()); // Probably unclean code.
         }
 
         let path = self.local_avatar_path();
@@ -84,6 +84,8 @@ impl User {
             "https://cdn.discordapp.com/avatars/{}/{}.{}?size=64",
             self.id, self.avatar_hash, format_param
         );
+
+        println!("{}", url);
 
         let bytes = HTTP_CLIENT.get(&url).send().await?.bytes().await?;
 
