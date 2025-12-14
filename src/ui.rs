@@ -27,7 +27,7 @@ fn on_private_channel_clicked(ui: &AppWindow, app_state: AppState) {
         if let Some(channel) = guard.private_channels.get(index as usize) {
             println!(
                 "Private channel clicked: {} (index: {})",
-                channel.display_name(),
+                channel.display_name(&guard.users),
                 index
             );
 
@@ -115,7 +115,7 @@ fn update_ui(ui: &AppWindow, app_state: AppState) {
         guard
             .private_channels
             .iter()
-            .map(|v| SharedString::from(v.display_name()))
+            .map(|v| SharedString::from(v.display_name(&guard.users)))
             .collect::<Vec<SharedString>>(),
     ));
     ui.set_private_channel_names(private_channel_names);
@@ -133,8 +133,9 @@ fn update_ui(ui: &AppWindow, app_state: AppState) {
                     }
                 }
                 ChannelType::Private => channel
-                    .recipients
+                    .recipient_ids
                     .first()
+                    .and_then(|user_id| guard.users.get(user_id))
                     .map(|user| user.load_avatar_image())
                     .unwrap_or_default(),
             })

@@ -6,7 +6,11 @@ use tokio::spawn;
 
 use crate::state::{AppState, ChannelType, PrivateChannel, UpdateSender, User};
 
-pub async fn get_private_channels(app_state: AppState, json: &Value) -> Vec<PrivateChannel> {
+pub async fn get_private_channels(
+    app_state: AppState,
+    json: &Value,
+    update_sender: UpdateSender,
+) -> Vec<PrivateChannel> {
     let mut channels = Vec::new();
 
     if let Some(private_channels) = json
@@ -15,8 +19,7 @@ pub async fn get_private_channels(app_state: AppState, json: &Value) -> Vec<Priv
     {
         for private_channel in private_channels {
             if let Some(recipients) = private_channel.get("recipients").and_then(|r| r.as_array()) {
-
-                get_users(recipients, app_state.clone()).await;
+                get_users(recipients, app_state.clone(), update_sender.clone()).await;
 
                 let _type = private_channel
                     .get("type")
@@ -98,12 +101,23 @@ pub async fn get_private_channels(app_state: AppState, json: &Value) -> Vec<Priv
                     .unwrap_or_default()
                     .to_string();
 
+                let recipient_ids: Vec<u64> = recipients
+                    .iter()
+                    .filter_map(|recipient| {
+                        recipient
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .and_then(|s| s.parse::<u64>().ok())
+                    })
+                    .collect();
+
                 if !user_recipients.is_empty() {
                     channels.push(PrivateChannel {
                         id,
                         channel_type,
                         name,
                         recipients: user_recipients,
+                        recipient_ids: recipient_ids,
                         sort_id,
                         icon_hash: icon,
                         //messages: None
@@ -116,7 +130,7 @@ pub async fn get_private_channels(app_state: AppState, json: &Value) -> Vec<Priv
     return channels;
 }
 
-pub fn load_private_channel_avatars(app_state: AppState, update_sender: UpdateSender) {
+/*pub fn load_private_channel_avatars(app_state: AppState, update_sender: UpdateSender) {
     spawn(async move {
         // Get recipients avatars
         let recipients: Vec<User> = {
@@ -169,9 +183,9 @@ pub fn load_private_channel_avatars(app_state: AppState, update_sender: UpdateSe
 
         let _ = join_all(channel_futures).await;
     });
-}
+}*/
 
-async fn get_users(recipients: &[Value], app_state: AppState) {
+async fn get_users(recipients: &[Value], app_state: AppState, update_sender: UpdateSender) {
     let parsed: Vec<User> = recipients
         .into_iter()
         .filter_map(|r| {
@@ -184,9 +198,28 @@ async fn get_users(recipients: &[Value], app_state: AppState) {
         })
         .collect();
 
-    let mut guard = app_state.write().await;
+    {
+        let mut guard = app_state.write().await;
 
-    for user in parsed {
-        guard.users.insert(user.id, user);
+        for user in parsed {
+            guard.users.insert(user.id, user);
+        }
     }
+
+    download_all_avatars_parallel(app_state, update_sender).await;
+}
+
+async fn download_all_avatars_parallel(app_state: AppState, update_sender: UpdateSender) {
+    let users: Vec<User> = {
+        let guard = app_state.read().await;
+        guard.users.values().cloned().collect()
+    };
+
+    let futures = users.into_iter().map(|user| async move {
+        let _ = user.get_avatar().await;
+    });
+
+    join_all(futures).await;
+
+    let _ = update_sender.send(());
 }

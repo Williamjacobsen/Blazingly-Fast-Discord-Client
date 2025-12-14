@@ -2,17 +2,17 @@ use std::cmp::Reverse;
 
 use serde_json::Value;
 
-use crate::state::AppState;
+use crate::state::{AppState, UpdateSender};
 use crate::websocket::load_initial_data::get_client_username::get_client_username;
 use crate::websocket::load_initial_data::get_guilds::get_guilds;
 use crate::websocket::load_initial_data::get_private_channels::get_private_channels;
 
 /// load_initial_data loads data received from sending the initial intent message (opcode 2).
-pub async fn load_initial_data(json: &Value, app_state: AppState) {
+pub async fn load_initial_data(json: &Value, app_state: AppState, update_sender: UpdateSender) {
     let client_user = get_client_username(json);
     let guilds = get_guilds(json);
 
-    let mut private_channels = get_private_channels(app_state.clone(), json).await;
+    let mut private_channels = get_private_channels(app_state.clone(), json, update_sender).await;
     private_channels.sort_by_key(|v| Reverse(v.sort_id));
 
     {

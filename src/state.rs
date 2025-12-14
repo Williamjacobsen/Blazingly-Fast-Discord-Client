@@ -38,7 +38,9 @@ impl User {
         }
     }
 
-    fn local_avatar_path(&self) -> PathBuf {
+    pub fn local_avatar_path(&self) -> PathBuf {
+        println!("id: {}, avatar_hash: {}", self.id, self.avatar_hash);
+
         if self.id == 0 || self.avatar_hash.is_empty() {
             return PathBuf::new();
         }
@@ -57,6 +59,9 @@ impl User {
 
     pub fn load_avatar_image(&self) -> Image {
         let path = self.local_avatar_path();
+
+        println!("Loading avatar from: {:?}, exists: {}", path, path.exists());
+
         if !path.as_os_str().is_empty() && path.exists() {
             Image::load_from_path(&path).unwrap_or_default()
         } else {
@@ -128,20 +133,21 @@ pub struct PrivateChannel {
     pub channel_type: ChannelType,
     pub name: String,
     pub recipients: Vec<User>, // TODO: Fix duplicate User.
+    pub recipient_ids: Vec<u64>,
     /// sort_id is either a snowflake id of the last message sent, or a snowflake id of the channels creation.
     pub sort_id: u64,
     pub icon_hash: String,
 }
 
 impl PrivateChannel {
-    pub fn display_name(&self) -> String {
+    pub fn display_name(&self, users: &HashMap<u64, User>) -> String {
         if !self.name.is_empty() {
             self.name.clone()
         } else {
             let recipient_names: Vec<String> = self
-                .recipients
+                .recipient_ids
                 .iter()
-                .map(|user| user.display_name().to_string())
+                .filter_map(|id| users.get(id).map(|u| u.display_name().to_string()))
                 .collect();
 
             if recipient_names.is_empty() {

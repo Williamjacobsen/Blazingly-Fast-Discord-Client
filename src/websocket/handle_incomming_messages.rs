@@ -1,6 +1,6 @@
 use std::{error::Error, sync::Arc};
 
-use crate::websocket::load_initial_data::get_private_channels::load_private_channel_avatars;
+//use crate::websocket::load_initial_data::get_private_channels::load_private_channel_avatars;
 use crate::{
     state::{AppState, UpdateSender},
     websocket::{
@@ -54,14 +54,14 @@ pub async fn handle_incomming_messages(
                             println!("Event type: {}", t);
 
                             if s == 1 && op == 0 {
-                                load_initial_data(&json, app_state.clone()).await;
+                                load_initial_data(&json, app_state.clone(), update_sender.clone()).await;
 
                                 let _ = update_sender.send(());
 
-                                load_private_channel_avatars(
-                                    app_state.clone(),
-                                    update_sender.clone(),
-                                );
+                                //load_private_channel_avatars(
+                                //    app_state.clone(),
+                                //    update_sender.clone(),
+                                //);
 
                                 //let app_data = app_state.read().await;
                                 //println!("{:?}", *app_data);
