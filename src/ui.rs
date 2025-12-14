@@ -35,20 +35,16 @@ fn on_private_channel_clicked(ui: &AppWindow, app_state: AppState) {
 
             drop(guard);
 
-            get_recent_messages_async(weak_ui.clone(), app_state.clone(), channel_id);
+            get_recent_messages_async(weak_ui.clone(), channel_id);
         }
     });
 }
 
-pub fn get_recent_messages_async(
-    weak_ui: Weak<AppWindow>,
-    app_state: AppState,
-    channel_id: String,
-) {
+pub fn get_recent_messages_async(weak_ui: Weak<AppWindow>, channel_id: String) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            match api::get_recent_messages(app_state, &channel_id, Some(50)).await {
+            match api::get_recent_messages(&channel_id, Some(50)).await {
                 Ok(messages) => {
                     println!("{:?}", messages);
 
@@ -58,7 +54,8 @@ pub fn get_recent_messages_async(
                             author: SharedString::from(&msg.author_id),
                             content: SharedString::from(&msg.content),
                         })
-                        .rev().collect();
+                        .rev()
+                        .collect();
 
                     if let Err(e) = slint::invoke_from_event_loop(move || {
                         if let Some(ui) = weak_ui.upgrade() {

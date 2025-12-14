@@ -4,7 +4,7 @@ use std::{env, error::Error};
 
 use dotenv::dotenv;
 
-use crate::state::{AppState, Message, HTTP_CLIENT};
+use crate::state::{Message, HTTP_CLIENT};
 
 pub fn initialize() -> Result<(), Box<dyn Error>> {
     dotenv()?;
@@ -12,7 +12,6 @@ pub fn initialize() -> Result<(), Box<dyn Error>> {
 }
 
 pub async fn get_recent_messages(
-    app_state: AppState,
     channel_id: &str,
     limit: Option<u8>,
 ) -> Result<Vec<Message>, Box<dyn Error>> {
@@ -52,17 +51,6 @@ pub async fn get_recent_messages(
     } else {
         vec![]
     };
-
-    //let mut state = app_state.write().await;
-    //if let Some(channel) = state
-    //    .private_channels
-    //    .iter_mut()
-    //    .find(|ch| ch.id == channel_id)
-    //{
-    //    channel.messages = Some(messages.clone());
-    //} else {
-    //    eprintln!("Channel {} not found in app_state", channel_id);
-    //}
 
     Ok(messages)
 }
