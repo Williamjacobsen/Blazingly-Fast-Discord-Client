@@ -6,7 +6,7 @@ use tokio::spawn;
 
 use crate::state::{AppState, ChannelType, PrivateChannel, UpdateSender, User};
 
-pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
+pub async fn get_private_channels(app_state: AppState, json: &Value) -> Vec<PrivateChannel> {
     let mut channels = Vec::new();
 
     if let Some(private_channels) = json
@@ -15,6 +15,9 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
     {
         for private_channel in private_channels {
             if let Some(recipients) = private_channel.get("recipients").and_then(|r| r.as_array()) {
+
+                get_users(recipients, app_state.clone()).await;
+
                 let _type = private_channel
                     .get("type")
                     .and_then(|v| v.as_u64())
@@ -43,9 +46,8 @@ pub fn get_private_channels(json: &Value) -> Vec<PrivateChannel> {
                     .filter_map(|recipient| {
                         let id = recipient
                             .get("id")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or_default()
-                            .to_string();
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or_default();
 
                         let username = recipient
                             .get("username")
@@ -120,7 +122,7 @@ pub fn load_private_channel_avatars(app_state: AppState, update_sender: UpdateSe
         let recipients: Vec<User> = {
             let guard = app_state.read().await;
 
-            let mut seen = HashSet::<String>::new();
+            let mut seen = HashSet::<u64>::new();
             let mut uniques = Vec::<User>::new();
 
             for user in guard
@@ -167,4 +169,24 @@ pub fn load_private_channel_avatars(app_state: AppState, update_sender: UpdateSe
 
         let _ = join_all(channel_futures).await;
     });
+}
+
+async fn get_users(recipients: &[Value], app_state: AppState) {
+    let parsed: Vec<User> = recipients
+        .into_iter()
+        .filter_map(|r| {
+            Some(User {
+                id: r.get("id")?.as_str()?.parse::<u64>().ok()?,
+                username: r.get("username")?.as_str()?.to_owned(),
+                global_name: r.get("global_name")?.as_str()?.to_owned(),
+                avatar_hash: r.get("avatar")?.as_str()?.to_owned(),
+            })
+        })
+        .collect();
+
+    let mut guard = app_state.write().await;
+
+    for user in parsed {
+        guard.users.insert(user.id, user);
+    }
 }

@@ -12,17 +12,22 @@ pub async fn load_initial_data(json: &Value, app_state: AppState) {
     let client_user = get_client_username(json);
     let guilds = get_guilds(json);
 
-    let mut private_channels = get_private_channels(json);
+    let mut private_channels = get_private_channels(app_state.clone(), json).await;
     private_channels.sort_by_key(|v| Reverse(v.sort_id));
 
-    let mut app_data = app_state.write().await;
+    {
+        let mut app_data = app_state.write().await;
 
-    if let Some(user) = client_user {
-        app_data.current_user = Some(user.clone());
+        if let Some(user) = client_user {
+            app_data.current_user = Some(user.clone());
 
-        let _ = user.get_avatar().await;
+            let _ = user.get_avatar().await;
+        }
+
+        app_data.private_channels = private_channels;
+        app_data.guilds = guilds;
     }
 
-    app_data.private_channels = private_channels;
-    app_data.guilds = guilds;
+    let app_data = app_state.read().await;
+    println!("{:?}", app_data.users);
 }

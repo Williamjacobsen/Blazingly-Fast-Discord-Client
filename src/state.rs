@@ -23,9 +23,9 @@ pub static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct User {
-    pub id: String,
+    pub id: u64,
     pub username: String,
-    pub global_name: String,
+    pub global_name: String, // should be optional.
     pub avatar_hash: String,
 }
 
@@ -39,7 +39,7 @@ impl User {
     }
 
     fn local_avatar_path(&self) -> PathBuf {
-        if self.id.is_empty() || self.avatar_hash.is_empty() {
+        if self.id != 0 || self.avatar_hash.is_empty() {
             return PathBuf::new();
         }
 
@@ -65,7 +65,7 @@ impl User {
     }
 
     pub async fn get_avatar(&self) -> Result<(), Box<dyn Error>> {
-        if self.id.is_empty() || self.avatar_hash.is_empty() {
+        if self.id != 0 || self.avatar_hash.is_empty() {
             return Ok(());
         }
 
@@ -219,10 +219,12 @@ pub struct Guild {
     pub name: String,
 }
 
+pub type UserId = u64;
+
 #[derive(Debug, Default)]
 pub struct AppData {
     pub current_user: Option<User>,
-    pub users: HashMap<String, User>,
+    pub users: HashMap<UserId, User>,
     pub private_channels: Vec<PrivateChannel>,
     pub guilds: Vec<Guild>,
 }

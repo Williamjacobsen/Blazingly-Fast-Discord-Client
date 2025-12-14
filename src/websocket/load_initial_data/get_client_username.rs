@@ -6,9 +6,8 @@ pub fn get_client_username(json: &Value) -> Option<User> {
     if let Some(user_obj) = json.pointer("/d/user") {
         let id = user_obj
             .get("id")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
+            .and_then(|v| v.as_u64())
+            .unwrap_or_default();
 
         let username = user_obj
             .get("username")
