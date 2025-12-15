@@ -74,15 +74,36 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
             match msg {
                 Ok(message) => match message {
                     Message::Text(message) => {
-                        println!("{:?}", message);
+                        //println!("{:?}", message);
 
                         let payload: serde_json::Value = serde_json::from_str(&message).unwrap();
 
                         let op = payload.get("op").and_then(|v| v.as_u64()).unwrap();
 
                         match op {
+                            0 => {
+                                let s = payload
+                                    .get("s")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or_default();
+
+                                // Handle initial data requests by `Identify`.
+                                if s == 0 {
+                                    // Do it here.
+
+                                    continue;
+                                }
+
+                                {
+                                    let mut seq = sequence_tracker.lock().await;
+                                    *seq = s;
+                                    println!("Sequence tracker: {}", *seq);
+                                }
+
+                                // Handle incomming messages.
+                            }
+
                             10 => {
-                                // Object {"d": Object {"_trace": Array [String("[\"gateway-prd-arm-us-east1-c-3g06\",{\"micros\":0.0}]")], "heartbeat_interval": Number(41250)}, "op": Number(10), "s": Null, "t": Null}
                                 println!("Handling OP code 10...");
 
                                 let heartbeat_interval = payload
