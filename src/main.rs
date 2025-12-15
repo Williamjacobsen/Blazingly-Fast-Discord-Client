@@ -1,8 +1,9 @@
 use dotenv::dotenv;
 use std::error::Error;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::{env, time::Duration};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 
 use futures_util::{SinkExt, StreamExt};
@@ -64,7 +65,7 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
     transmitter.send(Message::Text(identify.to_string().into()))?;
     println!("Sent IDENTIFY...");
 
-    let sequence_tracker = Arc::new(Mutex::new(0u64));
+    let sequence_tracker = Arc::new(AtomicU64::new(0));
 
     /*
      * Handles incomming messages on `read` websocket stream sink.
@@ -94,11 +95,11 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                     continue;
                                 }
 
-                                {
-                                    let mut seq = sequence_tracker.lock().await;
-                                    *seq = s;
-                                    println!("Sequence tracker: {}", *seq);
-                                }
+                                sequence_tracker.store(s, Ordering::Relaxed);
+                                println!(
+                                    "Sequence tracker: {}",
+                                    sequence_tracker.load(Ordering::Relaxed)
+                                );
 
                                 // Handle incomming messages.
                             }
@@ -112,22 +113,17 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                     .unwrap();
 
                                 let transmitter_clone = transmitter.clone();
-                                let heartbeat_sequence_tracker = sequence_tracker.clone();
+                                let sequence_tracker_clone = sequence_tracker.clone();
                                 tokio::spawn(async move {
                                     loop {
-                                        {
-                                            let current_sequence =
-                                                *heartbeat_sequence_tracker.lock().await;
+                                        let heartbeat_payload = serde_json::json!({
+                                            "op": 1,
+                                            "d": sequence_tracker_clone.load(Ordering::Relaxed)
+                                        });
 
-                                            let heartbeat_payload = serde_json::json!({
-                                                "op": 1,
-                                                "d": current_sequence
-                                            });
-
-                                            let _ = transmitter_clone.send(Message::Text(
-                                                heartbeat_payload.to_string().into(),
-                                            ));
-                                        }
+                                        let _ = transmitter_clone.send(Message::Text(
+                                            heartbeat_payload.to_string().into(),
+                                        ));
 
                                         tokio::time::sleep(Duration::from_millis(
                                             heartbeat_interval,
