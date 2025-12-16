@@ -1,10 +1,11 @@
 use dotenv::dotenv;
 use serde::{Deserialize, Deserializer};
+use std::collections::HashMap;
 use std::error::Error;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::{env, time::Duration};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock};
 use tokio_tungstenite::tungstenite::Message;
 
 use futures_util::{SinkExt, StreamExt};
@@ -16,14 +17,18 @@ slint::include_modules!();
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
 
-    handle_websocket_connection().await?;
+    let app_state = Arc::new(RwLock::new(AppState::new()));
+
+    handle_websocket_connection(app_state).await?;
 
     run_app()?;
 
     Ok(())
 }
 
-async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
+async fn handle_websocket_connection(
+    app_state: Arc<RwLock<AppState>>,
+) -> Result<(), Box<dyn Error>> {
     let authorization_token = env::var("DISCORD_TOKEN").expect("PANIC: No DISCORD_TOKEN set.");
 
     let gateway_url = "wss://gateway.discord.gg/?v=10&encoding=json";
@@ -103,7 +108,7 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                 if let Some(event_name) = payload.get("t").and_then(|v| v.as_str())
                                 {
                                     match event_name {
-                                        /*
+                                        /* "READY" event type:
                                          * Handles initial data requests by `Identify`.
                                          * This loads the following data into state:
                                          *      - Client profile information
@@ -111,6 +116,8 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                          *      - Guilds
                                          */
                                         "READY" => {
+                                            let mut state = app_state.write().await;
+
                                             /* Get client profile information:
                                              *      - id
                                              *      - username
@@ -123,6 +130,7 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                                 let user: User =
                                                     serde_json::from_value(user.clone()).unwrap();
                                                 println!("Logged in user info: {:?}", user);
+                                                state.client_user = Some(user);
                                             }
 
                                             /* Get private channels:
@@ -150,19 +158,26 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                                                         recipient.clone(),
                                                                     )
                                                                     .unwrap();
-                                                                //users.insert(user.id, user);
                                                                 println!("User: {:?}", user);
+                                                                state.users.insert(user.id, user);
                                                             }
                                                         }
 
                                                         let channel: PrivateChannel =
                                                             serde_json::from_value(channel.clone())
                                                                 .unwrap();
-
                                                         println!("Private channel: {:?}", channel);
+                                                        state.private_channels.push(channel);
                                                     }
                                                 }
                                             }
+
+                                            /* Get guilds:
+                                             *      - TODO
+                                             */
+                                            println!("Getting guilds...");
+
+                                            // TODO: Get guilds
                                         }
 
                                         other => {
@@ -245,7 +260,23 @@ fn run_app() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[derive(Debug, Deserialize)]
+/*
+ * AppState could be replaced by storing state in slint (avoids duplicate state).
+ */
+#[derive(Debug, Clone, Default)]
+struct AppState {
+    pub client_user: Option<User>,
+    pub users: HashMap<u64, User>,
+    pub private_channels: Vec<PrivateChannel>,
+}
+
+impl AppState {
+    fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
 struct User {
     #[serde(deserialize_with = "string_to_u64")]
     pub id: u64,
@@ -254,7 +285,7 @@ struct User {
     pub avatar: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct PrivateChannel {
     #[serde(deserialize_with = "string_to_u64")]
     pub id: u64,
