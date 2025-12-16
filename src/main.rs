@@ -99,6 +99,7 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                     sequence_tracker.load(Ordering::Relaxed)
                                 );
 
+                                // Handle incomming messages based on their `event_name`
                                 if let Some(event_name) = payload.get("t").and_then(|v| v.as_str())
                                 {
                                     match event_name {
@@ -111,10 +112,10 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                          */
                                         "READY" => {
                                             /* Get client profile information:
-                                             * - id
-                                             * - username
-                                             * - global_name
-                                             * - avatar_hash
+                                             *      - id
+                                             *      - username
+                                             *      - global_name
+                                             *      - avatar_hash
                                              */
                                             println!("Getting client profile information...");
 
@@ -122,6 +123,45 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                                 let user: User =
                                                     serde_json::from_value(user.clone()).unwrap();
                                                 println!("Logged in user info: {:?}", user);
+                                            }
+
+                                            /* Get private channels:
+                                             *      - id
+                                             *      - last_message_id
+                                             *      - recipient ids
+                                             * Also updates HashMap<id, User>
+                                             */
+                                            println!("Getting private channel information...");
+
+                                            if let Some(private_channels) =
+                                                payload.pointer("/d/private_channels")
+                                            {
+                                                if let Some(channels_array) =
+                                                    private_channels.as_array()
+                                                {
+                                                    for channel in channels_array {
+                                                        if let Some(recipients) = channel
+                                                            .get("recipients")
+                                                            .and_then(|r| r.as_array())
+                                                        {
+                                                            for recipient in recipients {
+                                                                let user: User =
+                                                                    serde_json::from_value(
+                                                                        recipient.clone(),
+                                                                    )
+                                                                    .unwrap();
+                                                                //users.insert(user.id, user);
+                                                                println!("User: {:?}", user);
+                                                            }
+                                                        }
+
+                                                        let channel: PrivateChannel =
+                                                            serde_json::from_value(channel.clone())
+                                                                .unwrap();
+
+                                                        println!("Private channel: {:?}", channel);
+                                                    }
+                                                }
                                             }
                                         }
 
@@ -214,10 +254,41 @@ struct User {
     pub avatar: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct PrivateChannel {
+    #[serde(deserialize_with = "string_to_u64")]
+    pub id: u64,
+
+    #[serde(deserialize_with = "optional_string_to_u64")]
+    pub last_message_id: Option<u64>,
+
+    #[serde(rename = "recipients", deserialize_with = "deserialize_recipient_ids")]
+    pub recipient_ids: Vec<u64>,
+}
+
 fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
 {
     let s: String = Deserialize::deserialize(deserializer)?;
     s.parse::<u64>().map_err(serde::de::Error::custom)
+}
+
+fn optional_string_to_u64<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    match s {
+        Some(s) => s.parse::<u64>().map(Some).map_err(serde::de::Error::custom),
+        None => Ok(None),
+    }
+}
+
+fn deserialize_recipient_ids<'de, D>(deserializer: D) -> Result<Vec<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let recipients: Vec<User> = Vec::deserialize(deserializer)?;
+    Ok(recipients.into_iter().map(|user| user.id).collect())
 }
