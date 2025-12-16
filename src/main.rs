@@ -1,4 +1,5 @@
 use dotenv::dotenv;
+use serde::{Deserialize, Deserializer};
 use std::error::Error;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -86,22 +87,11 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                              * Incomming messages and updates are handled here.
                              */
                             0 => {
+                                // Update `sequence` number
                                 let sequence = payload
                                     .get("s")
                                     .and_then(|v| v.as_u64())
                                     .unwrap_or_default();
-
-                                /*
-                                 * Handles initial data requests by `Identify`.
-                                 * This loads the following data into state:
-                                 *      - Client profile information
-                                 *      - Private channels
-                                 *      - Guilds
-                                 */
-                                if sequence == 0 {
-
-                                    continue;
-                                }
 
                                 sequence_tracker.store(sequence, Ordering::Relaxed);
                                 println!(
@@ -109,12 +99,39 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                     sequence_tracker.load(Ordering::Relaxed)
                                 );
 
-                                /*
-                                 * Handles incomming messages.
-                                 * This updates:
-                                 *      - sort_id of most recent message in each private channel.
-                                 *      - TODO: figure out how to tell if a message has been read.
-                                 */
+                                if let Some(event_name) = payload.get("t").and_then(|v| v.as_str())
+                                {
+                                    match event_name {
+                                        /*
+                                         * Handles initial data requests by `Identify`.
+                                         * This loads the following data into state:
+                                         *      - Client profile information
+                                         *      - Private channels
+                                         *      - Guilds
+                                         */
+                                        "READY" => {
+                                            /* Get client profile information:
+                                             * - id
+                                             * - username
+                                             * - global_name
+                                             * - avatar_hash
+                                             */
+                                            println!("Getting client profile information...");
+
+                                            if let Some(user) = payload.pointer("/d/user") {
+                                                let user: User =
+                                                    serde_json::from_value(user.clone()).unwrap();
+                                                println!("Logged in user info: {:?}", user);
+                                            }
+                                        }
+
+                                        other => {
+                                            println!("Unhandled event: {}", other);
+                                        }
+                                    }
+                                } else {
+                                    println!("Dispatch event missing 't' field");
+                                }
                             }
 
                             /* OP code: 10
@@ -135,6 +152,11 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                 let sequence_tracker_clone = sequence_tracker.clone();
                                 tokio::spawn(async move {
                                     loop {
+                                        tokio::time::sleep(Duration::from_millis(
+                                            heartbeat_interval,
+                                        ))
+                                        .await;
+
                                         let heartbeat_payload = serde_json::json!({
                                             "op": 1,
                                             "d": sequence_tracker_clone.load(Ordering::Relaxed)
@@ -143,11 +165,6 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                         let _ = transmitter_clone.send(Message::Text(
                                             heartbeat_payload.to_string().into(),
                                         ));
-
-                                        tokio::time::sleep(Duration::from_millis(
-                                            heartbeat_interval,
-                                        ))
-                                        .await;
                                     }
                                 });
                             }
@@ -186,4 +203,21 @@ fn run_app() -> Result<(), Box<dyn Error>> {
     ui.run()?;
 
     Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct User {
+    #[serde(deserialize_with = "string_to_u64")]
+    pub id: u64,
+    pub username: String,
+    pub global_name: Option<String>,
+    pub avatar: Option<String>,
+}
+
+fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: String = Deserialize::deserialize(deserializer)?;
+    s.parse::<u64>().map_err(serde::de::Error::custom)
 }
