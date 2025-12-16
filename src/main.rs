@@ -260,13 +260,15 @@ fn run_app() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+type Id = u64;
+
 /*
  * AppState could be replaced by storing state in slint (avoids duplicate state).
  */
 #[derive(Debug, Clone, Default)]
 struct AppState {
     pub client_user: Option<User>,
-    pub users: HashMap<u64, User>,
+    pub users: HashMap<Id, User>,
     pub private_channels: Vec<PrivateChannel>,
 }
 
