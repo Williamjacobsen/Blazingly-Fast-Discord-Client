@@ -82,28 +82,47 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                         let op = payload.get("op").and_then(|v| v.as_u64()).unwrap();
 
                         match op {
+                            /* OP code: 0
+                             * Incomming messages and updates are handled here.
+                             */
                             0 => {
-                                let s = payload
+                                let sequence = payload
                                     .get("s")
                                     .and_then(|v| v.as_u64())
                                     .unwrap_or_default();
 
-                                // Handle initial data requests by `Identify`.
-                                if s == 0 {
-                                    // Do it here.
+                                /*
+                                 * Handles initial data requests by `Identify`.
+                                 * This loads the following data into state:
+                                 *      - Client profile information
+                                 *      - Private channels
+                                 *      - Guilds
+                                 */
+                                if sequence == 0 {
 
                                     continue;
                                 }
 
-                                sequence_tracker.store(s, Ordering::Relaxed);
+                                sequence_tracker.store(sequence, Ordering::Relaxed);
                                 println!(
                                     "Sequence tracker: {}",
                                     sequence_tracker.load(Ordering::Relaxed)
                                 );
 
-                                // Handle incomming messages.
+                                /*
+                                 * Handles incomming messages.
+                                 * This updates:
+                                 *      - sort_id of most recent message in each private channel.
+                                 *      - TODO: figure out how to tell if a message has been read.
+                                 */
                             }
 
+                            /* OP code: 10
+                             * Handles Hello messages from Discord when establishing a websocket connection.
+                             * Spawns a thread, for sending heartbeats.
+                             * Each heartbeat must be sent every `heartbeat_interval`.
+                             * Each heartbeat must contain the most up to date `sequence` number.
+                             */
                             10 => {
                                 println!("Handling OP code 10...");
 
@@ -133,10 +152,16 @@ async fn handle_websocket_connection() -> Result<(), Box<dyn Error>> {
                                 });
                             }
 
+                            /* OP code: 11
+                             * Handles the receiving of heartbeat ACK's (acknowledgements).
+                             */
                             11 => {
                                 println!("Received heartbeat ACK...")
                             }
 
+                            /* OP code: _
+                             * Any message with an OP code, that has not been handled, is handled here.
+                             */
                             other => {
                                 eprintln!("Have not handled this case for OP code: {}", other)
                             }
