@@ -1,5 +1,6 @@
 use dotenv::dotenv;
 use serde::{Deserialize, Deserializer};
+use slint::SharedString;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -17,13 +18,70 @@ slint::include_modules!();
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
 
-    let app_state = Arc::new(RwLock::new(AppState::new()));
+    let ui = AppWindow::new()?;
+    let weak_ui = ui.as_weak();
 
-    handle_websocket_connection(app_state).await?;
+    let app_state = Arc::new(RwLock::new(AppState::new(weak_ui)));
 
-    run_app()?;
+    let state_clone = app_state.clone();
+    tokio::spawn(async move {
+        let _ = handle_websocket_connection(state_clone).await;
+    });
+
+    ui.run()?;
 
     Ok(())
+}
+
+async fn parse_initial_data(app_state: Arc<RwLock<AppState>>, payload: serde_json::Value) {
+    let mut state = app_state.write().await;
+
+    /* Get client profile information:
+     *      - id
+     *      - username
+     *      - global_name
+     *      - avatar_hash
+     */
+    println!("Getting client profile information...");
+
+    if let Some(user) = payload.pointer("/d/user") {
+        let user = serde_json::from_value(user.clone()).unwrap_or_default();
+        println!("Logged in user info: {:?}", user);
+        state.set_client_user(user);
+    }
+
+    /* Get private channels:
+     *      - id
+     *      - last_message_id
+     *      - recipient ids
+     * Also updates HashMap<id, User>
+     */
+    println!("Getting private channel information...");
+
+    if let Some(private_channels) = payload.pointer("/d/private_channels") {
+        if let Some(channels_array) = private_channels.as_array() {
+            for channel in channels_array {
+                if let Some(recipients) = channel.get("recipients").and_then(|r| r.as_array()) {
+                    for recipient in recipients {
+                        let user: User = serde_json::from_value(recipient.clone()).unwrap();
+                        println!("User: {:?}", user);
+                        state.users.insert(user.id, user);
+                    }
+                }
+
+                let channel: PrivateChannel = serde_json::from_value(channel.clone()).unwrap();
+                println!("Private channel: {:?}", channel);
+                state.private_channels.push(channel);
+            }
+        }
+    }
+
+    /* Get guilds:
+     *      - TODO
+     */
+    println!("Getting guilds...");
+
+    // TODO: Get guilds
 }
 
 async fn handle_websocket_connection(
@@ -116,68 +174,14 @@ async fn handle_websocket_connection(
                                          *      - Guilds
                                          */
                                         "READY" => {
-                                            let mut state = app_state.write().await;
-
-                                            /* Get client profile information:
-                                             *      - id
-                                             *      - username
-                                             *      - global_name
-                                             *      - avatar_hash
-                                             */
-                                            println!("Getting client profile information...");
-
-                                            if let Some(user) = payload.pointer("/d/user") {
-                                                let user: User =
-                                                    serde_json::from_value(user.clone()).unwrap();
-                                                println!("Logged in user info: {:?}", user);
-                                                state.client_user = Some(user);
-                                            }
-
-                                            /* Get private channels:
-                                             *      - id
-                                             *      - last_message_id
-                                             *      - recipient ids
-                                             * Also updates HashMap<id, User>
-                                             */
-                                            println!("Getting private channel information...");
-
-                                            if let Some(private_channels) =
-                                                payload.pointer("/d/private_channels")
-                                            {
-                                                if let Some(channels_array) =
-                                                    private_channels.as_array()
-                                                {
-                                                    for channel in channels_array {
-                                                        if let Some(recipients) = channel
-                                                            .get("recipients")
-                                                            .and_then(|r| r.as_array())
-                                                        {
-                                                            for recipient in recipients {
-                                                                let user: User =
-                                                                    serde_json::from_value(
-                                                                        recipient.clone(),
-                                                                    )
-                                                                    .unwrap();
-                                                                println!("User: {:?}", user);
-                                                                state.users.insert(user.id, user);
-                                                            }
-                                                        }
-
-                                                        let channel: PrivateChannel =
-                                                            serde_json::from_value(channel.clone())
-                                                                .unwrap();
-                                                        println!("Private channel: {:?}", channel);
-                                                        state.private_channels.push(channel);
-                                                    }
-                                                }
-                                            }
-
-                                            /* Get guilds:
-                                             *      - TODO
-                                             */
-                                            println!("Getting guilds...");
-
-                                            // TODO: Get guilds
+                                            println!(
+                                                "Received READY event, parsing initial data..."
+                                            );
+                                            let _ = parse_initial_data(
+                                                app_state.clone(),
+                                                payload.clone(),
+                                            )
+                                            .await;
                                         }
 
                                         other => {
@@ -252,29 +256,40 @@ async fn handle_websocket_connection(
     Ok(())
 }
 
-fn run_app() -> Result<(), Box<dyn Error>> {
-    let ui = AppWindow::new()?;
-
-    ui.run()?;
-
-    Ok(())
-}
-
-type Id = u64;
-
 /*
  * AppState could be replaced by storing state in slint (avoids duplicate state).
  */
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 struct AppState {
+    weak_ui: slint::Weak<AppWindow>,
     pub client_user: Option<User>,
-    pub users: HashMap<Id, User>,
+    pub users: HashMap<u64, User>,
     pub private_channels: Vec<PrivateChannel>,
 }
 
 impl AppState {
-    fn new() -> Self {
-        Self::default()
+    fn new(weak_ui: slint::Weak<AppWindow>) -> Self {
+        Self {
+            weak_ui,
+            ..Default::default()
+        }
+    }
+
+    pub fn set_client_user(&mut self, user: Option<User>) {
+        self.client_user = user.clone();
+
+        let username = user
+            .map(|u| u.username)
+            .unwrap_or("Error: No Username Found.".to_string())
+            .to_string();
+
+        let weak_ui_clone = self.weak_ui.clone();
+        slint::invoke_from_event_loop(move || {
+            if let Some(ui) = weak_ui_clone.upgrade() {
+                ui.set_visible_name(SharedString::from(username));
+            }
+        })
+        .unwrap();
     }
 }
 

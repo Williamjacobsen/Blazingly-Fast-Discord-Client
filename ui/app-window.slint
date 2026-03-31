@@ -38,8 +38,6 @@ export component AppWindow inherits Window {
             x: 10px;
             height: parent.height - 70px;
             width: parent.width - 10px;
-
-            // Guild icons here
         }
     }
 
@@ -62,10 +60,9 @@ export component AppWindow inherits Window {
                 width: parent.width;
                 height: parent.height;
 
-                // Private channel cards
                 VerticalBox {
                     spacing: 5px;
-                    alignment: start;
+                    alignment: LayoutAlignment.start; // Fixed alignment constant
 
                     for private-channel[index] in private-channel-names: TouchArea {
                         width: 100%;
@@ -90,7 +87,7 @@ export component AppWindow inherits Window {
                                 height: 30px;
                                 x: 10px;
                                 y: 2.5px;
-                                border-radius: 50px;
+                                border-radius: 15px;
                                 clip: true;
                                 background: #2e2d2d;
                                 Image {
@@ -116,7 +113,7 @@ export component AppWindow inherits Window {
         }
     }
 
-    // Border between Private channels column and Guilds column
+    // Border
     Rectangle {
         x: 80px;
         width: 2px;
@@ -140,7 +137,7 @@ export component AppWindow inherits Window {
             height: 50px;
             x: 10px;
             y: 5px;
-            border-radius: 50px;
+            border-radius: 25px;
             clip: true;
             background: #2e2d2d;
             Image {
@@ -152,10 +149,13 @@ export component AppWindow inherits Window {
 
         Text {
             text: visible-name;
-            color: text-color;
             font-size: 16px;
+            font-weight: 900;
+            x: 70px;
+            width: parent.width - 80px;
+            height: parent.height;
             vertical-alignment: center;
-            horizontal-alignment: center;
+            horizontal-alignment: left;
         }
     }
 
@@ -175,7 +175,7 @@ export component AppWindow inherits Window {
 
             VerticalBox {
                 spacing: 10px;
-                alignment: start;
+                alignment: LayoutAlignment.start;
                 width: parent.width;
 
                 for message in messages: Rectangle {
@@ -200,7 +200,7 @@ export component AppWindow inherits Window {
                         x: 10px;
                         y: author-text.y + author-text.preferred-height + 5px;
                         width: parent.width - 20px;
-                        wrap: word-wrap;
+                        wrap: TextWrap.word-wrap;
                     }
                 }
             }
