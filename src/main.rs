@@ -45,9 +45,15 @@ async fn parse_initial_data(app_state: Arc<RwLock<AppState>>, payload: serde_jso
     println!("Getting client profile information...");
 
     if let Some(user) = payload.pointer("/d/user") {
-        let user = serde_json::from_value(user.clone()).unwrap_or_default();
+        let user: Option<User> = serde_json::from_value(user.clone()).unwrap_or_default();
         println!("Logged in user info: {:?}", user);
-        state.set_client_user(user);
+
+        if let Some(mut u) = user.clone() {
+            u.compute_display_name();
+            state.set_client_user(Some(u));
+        } else {
+            state.set_client_user(user);
+        }
     }
 
     /* Get private channels:
@@ -61,18 +67,27 @@ async fn parse_initial_data(app_state: Arc<RwLock<AppState>>, payload: serde_jso
     if let Some(private_channels) = payload.pointer("/d/private_channels") {
         if let Some(channels_array) = private_channels.as_array() {
             for channel in channels_array {
+                // Store recipients in AppState as Users.
                 if let Some(recipients) = channel.get("recipients").and_then(|r| r.as_array()) {
                     for recipient in recipients {
                         let user: User = serde_json::from_value(recipient.clone()).unwrap();
                         println!("User: {:?}", user);
+
+                        // TODO: Implement username picker
+
                         state.users.insert(user.id, user);
                     }
                 }
 
+                // Store only the ids of recipients, and other meta data.
                 let channel: PrivateChannel = serde_json::from_value(channel.clone()).unwrap();
                 println!("Private channel: {:?}", channel);
                 state.private_channels.push(channel);
             }
+
+            // TODO: Implement group name generator:
+            //  - If the private channel has a "name" key then use it, (might not exist).
+            //  - Otherwise merge recipient names with a comma in between.
         }
     }
 
@@ -256,6 +271,8 @@ async fn handle_websocket_connection(
     Ok(())
 }
 
+type Id = u64;
+
 /*
  * AppState could be replaced by storing state in slint (avoids duplicate state).
  */
@@ -263,7 +280,7 @@ async fn handle_websocket_connection(
 struct AppState {
     weak_ui: slint::Weak<AppWindow>,
     pub client_user: Option<User>,
-    pub users: HashMap<u64, User>,
+    pub users: HashMap<Id, User>,
     pub private_channels: Vec<PrivateChannel>,
 }
 
@@ -278,18 +295,23 @@ impl AppState {
     pub fn set_client_user(&mut self, user: Option<User>) {
         self.client_user = user.clone();
 
-        let username = user
-            .map(|u| u.username)
+        let display_name = user
+            .map(|u| u.display_name)
             .unwrap_or("Error: No Username Found.".to_string())
             .to_string();
 
         let weak_ui_clone = self.weak_ui.clone();
         slint::invoke_from_event_loop(move || {
             if let Some(ui) = weak_ui_clone.upgrade() {
-                ui.set_visible_name(SharedString::from(username));
+                ui.set_visible_name(SharedString::from(display_name));
             }
         })
         .unwrap();
+    }
+
+    pub fn set_private_channels(&mut self, private_channels: Vec<PrivateChannel>) {
+        self.private_channels = private_channels.clone();
+        // TODO: insert into slint
     }
 }
 
@@ -297,9 +319,22 @@ impl AppState {
 struct User {
     #[serde(deserialize_with = "string_to_u64")]
     pub id: u64,
+
+    #[serde(default)]
+    pub display_name: String,
+
     pub username: String,
     pub global_name: Option<String>,
     pub avatar: Option<String>,
+}
+
+impl User {
+    pub fn compute_display_name(&mut self) {
+        self.display_name = self
+            .global_name
+            .clone()
+            .unwrap_or_else(|| self.username.clone())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
