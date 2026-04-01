@@ -38,6 +38,7 @@ async fn parse_initial_data(app_state: Arc<RwLock<AppState>>, payload: serde_jso
 
     /* Get client profile information:
      *      - id
+     *      - computes display_name
      *      - username
      *      - global_name
      *      - avatar_hash
@@ -70,24 +71,21 @@ async fn parse_initial_data(app_state: Arc<RwLock<AppState>>, payload: serde_jso
                 // Store recipients in AppState as Users.
                 if let Some(recipients) = channel.get("recipients").and_then(|r| r.as_array()) {
                     for recipient in recipients {
-                        let user: User = serde_json::from_value(recipient.clone()).unwrap();
+                        let mut user: User = serde_json::from_value(recipient.clone()).unwrap();
                         println!("User: {:?}", user);
 
-                        // TODO: Implement username picker
+                        user.compute_display_name();
 
                         state.users.insert(user.id, user);
                     }
                 }
 
                 // Store only the ids of recipients, and other meta data.
-                let channel: PrivateChannel = serde_json::from_value(channel.clone()).unwrap();
+                let mut channel: PrivateChannel = serde_json::from_value(channel.clone()).unwrap();
+                channel.compute_display_name(&state.users);
                 println!("Private channel: {:?}", channel);
                 state.private_channels.push(channel);
             }
-
-            // TODO: Implement group name generator:
-            //  - If the private channel has a "name" key then use it, (might not exist).
-            //  - Otherwise merge recipient names with a comma in between.
         }
     }
 
@@ -95,8 +93,6 @@ async fn parse_initial_data(app_state: Arc<RwLock<AppState>>, payload: serde_jso
      *      - TODO
      */
     println!("Getting guilds...");
-
-    // TODO: Get guilds
 }
 
 async fn handle_websocket_connection(
@@ -342,11 +338,29 @@ struct PrivateChannel {
     #[serde(deserialize_with = "string_to_u64")]
     pub id: u64,
 
+    #[serde(rename = "name")]
+    pub display_name: Option<String>,
+
     #[serde(deserialize_with = "optional_string_to_u64")]
     pub last_message_id: Option<u64>,
 
     #[serde(rename = "recipients", deserialize_with = "deserialize_recipient_ids")]
     pub recipient_ids: Vec<u64>,
+}
+
+impl PrivateChannel {
+    pub fn compute_display_name(&mut self, users: &HashMap<Id, User>) {
+        if self.display_name.is_none() {
+            let names: Vec<String> = self
+                .recipient_ids
+                .iter()
+                .filter_map(|id| users.get(id))
+                .map(|u| u.display_name.clone())
+                .collect();
+
+            self.display_name = Some(names.join(", "));
+        }
+    }
 }
 
 fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
