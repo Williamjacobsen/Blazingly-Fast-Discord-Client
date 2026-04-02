@@ -1,22 +1,23 @@
 use dotenv::dotenv;
+use futures_util::{SinkExt, StreamExt};
+use http::{Request, Response};
 use serde::{Deserialize, Deserializer};
-use slint::SharedString;
+use slint::{ModelRc, SharedString, Weak};
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::{env, time::Duration};
 use tokio::sync::{mpsc, RwLock};
-use tokio_tungstenite::tungstenite::Message;
-
-use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::connect_async;
+use tokio_tungstenite::tungstenite::Message;
 
 slint::include_modules!();
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
+    let authorization_token = env::var("DISCORD_TOKEN").expect("PANIC: No DISCORD_TOKEN set.");
 
     let ui = AppWindow::new()?;
     let weak_ui = ui.as_weak();
@@ -24,13 +25,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let app_state = Arc::new(RwLock::new(AppState::new(weak_ui)));
 
     let state_clone = app_state.clone();
+    let auth_token_clone = authorization_token.clone();
     tokio::spawn(async move {
-        let _ = handle_websocket_connection(state_clone).await;
+        let _ = handle_websocket_connection(state_clone, auth_token_clone).await;
     });
+
+    wire_ui_events(&ui, app_state.clone());
 
     ui.run()?;
 
     Ok(())
+}
+
+fn wire_ui_events(ui: &AppWindow, app_state: Arc<RwLock<AppState>>) {
+    let state_clone = app_state.clone();
+
+    ui.on_private_channel_clicked(move |channel_index| {
+        let state = state_clone.clone();
+
+        tokio::spawn(async move {
+            let state = state.read().await;
+
+            if let Some(channel) = state.private_channels.get(channel_index as usize) {
+                println!("Clicked channel id: {}", channel.id);
+
+                // TODO: fetch messages
+            }
+        });
+    });
 }
 
 async fn parse_initial_data(app_state: Arc<RwLock<AppState>>, payload: serde_json::Value) {
@@ -86,6 +108,9 @@ async fn parse_initial_data(app_state: Arc<RwLock<AppState>>, payload: serde_jso
                 println!("Private channel: {:?}", channel);
                 state.private_channels.push(channel);
             }
+
+            let channels = state.private_channels.clone();
+            state.set_private_channels(channels);
         }
     }
 
@@ -97,9 +122,8 @@ async fn parse_initial_data(app_state: Arc<RwLock<AppState>>, payload: serde_jso
 
 async fn handle_websocket_connection(
     app_state: Arc<RwLock<AppState>>,
+    authorization_token: String,
 ) -> Result<(), Box<dyn Error>> {
-    let authorization_token = env::var("DISCORD_TOKEN").expect("PANIC: No DISCORD_TOKEN set.");
-
     let gateway_url = "wss://gateway.discord.gg/?v=10&encoding=json";
 
     let (ws_stream, _) = connect_async(gateway_url).await?;
@@ -307,7 +331,21 @@ impl AppState {
 
     pub fn set_private_channels(&mut self, private_channels: Vec<PrivateChannel>) {
         self.private_channels = private_channels.clone();
-        // TODO: insert into slint
+
+        let names: Vec<SharedString> = self
+            .private_channels
+            .iter()
+            .filter_map(|channel| channel.display_name.clone())
+            .map(SharedString::from)
+            .collect();
+
+        let weak_ui_clone = self.weak_ui.clone();
+        slint::invoke_from_event_loop(move || {
+            if let Some(ui) = weak_ui_clone.upgrade() {
+                ui.set_private_channel_names(ModelRc::from(names.as_slice()));
+            }
+        })
+        .unwrap();
     }
 }
 
