@@ -1,6 +1,5 @@
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
-use http::{Request, Response};
 use serde::{Deserialize, Deserializer};
 use slint::{ModelRc, SharedString, Weak};
 use std::collections::HashMap;
@@ -19,6 +18,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
     let authorization_token = env::var("DISCORD_TOKEN").expect("PANIC: No DISCORD_TOKEN set.");
 
+    let http_client = Arc::new(reqwest::Client::new());
+
     let ui = AppWindow::new()?;
     let weak_ui = ui.as_weak();
 
@@ -30,18 +31,33 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let _ = handle_websocket_connection(state_clone, auth_token_clone).await;
     });
 
-    wire_ui_events(&ui, app_state.clone());
+    let auth_token_clone = authorization_token.clone();
+    wire_ui_events(
+        &ui,
+        app_state.clone(),
+        http_client.clone(),
+        auth_token_clone,
+    );
 
     ui.run()?;
 
     Ok(())
 }
 
-fn wire_ui_events(ui: &AppWindow, app_state: Arc<RwLock<AppState>>) {
+fn wire_ui_events(
+    ui: &AppWindow,
+    app_state: Arc<RwLock<AppState>>,
+    http_client: Arc<reqwest::Client>,
+    authorization_token: String,
+) {
     let state_clone = app_state.clone();
+    let http_client_clone = http_client.clone();
+    let authorization_token_clone = authorization_token.clone();
 
     ui.on_private_channel_clicked(move |channel_index| {
         let state = state_clone.clone();
+        let http_client = http_client_clone.clone();
+        let authorization_token = authorization_token_clone.clone();
 
         tokio::spawn(async move {
             let state = state.read().await;
@@ -49,7 +65,19 @@ fn wire_ui_events(ui: &AppWindow, app_state: Arc<RwLock<AppState>>) {
             if let Some(channel) = state.private_channels.get(channel_index as usize) {
                 println!("Clicked channel id: {}", channel.id);
 
-                // TODO: fetch messages
+                let response = http_client
+                    .get(format!(
+                        "https://discord.com/api/v9/channels/{}/messages?limit=11",
+                        channel.id
+                    ))
+                    .header("Authorization", authorization_token)
+                    .send()
+                    .await
+                    .unwrap();
+
+                println!("Status: {}", response.status());
+                let body = response.text().await.unwrap();
+                println!("{}", body);
             }
         });
     });
