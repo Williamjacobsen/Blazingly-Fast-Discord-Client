@@ -13,6 +13,37 @@ use tokio_tungstenite::tungstenite::Message;
 
 slint::include_modules!();
 
+/*
+Private messages notes:
+type 3 = call
+type 0 = text message
+
+structure:
+[
+    {
+        "type": 0,
+        "content": "text message",
+        "timestamp": "2019-07-03T13:43:32.467000+00:00",
+        "id": "595972901954650155",
+        "channel_id": "581991170817916928",
+        "author": {
+            "id": "545218808806375439",
+        },
+    },
+    {
+        "type": 3,
+        "id": "602138003238027266",
+        "channel_id": "581991170817916928",
+        "author": {
+            "id": "545218808806375439",
+        },
+        "call": {
+            "ended_timestamp": "2019-07-20T14:53:34.422000+00:00",
+        },
+    },
+]
+*/
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
