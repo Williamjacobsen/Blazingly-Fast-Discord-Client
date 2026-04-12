@@ -395,6 +395,8 @@ impl AppState {
     pub fn set_private_channels(&mut self, private_channels: Vec<PrivateChannel>) {
         self.private_channels = private_channels.clone();
 
+        self.sort_private_channels();
+
         let names: Vec<SharedString> = self
             .private_channels
             .iter()
@@ -411,14 +413,24 @@ impl AppState {
         .unwrap();
     }
 
+    pub fn sort_private_channels(&mut self) {
+        self.private_channels.sort_by(|a, b| {
+            let key_a = a.last_message_id.unwrap_or(a.id);
+            let key_b = b.last_message_id.unwrap_or(b.id);
+            key_b.cmp(&key_a)
+        });
+    }
+
     pub fn set_message_buffer(&self, messages: Vec<MessageBuffer>) {
-        let slint_messages: Vec<MessageData> = messages
+        let mut slint_messages: Vec<MessageData> = messages
             .into_iter()
             .map(|messages| MessageData {
                 author: SharedString::from("TODO"),
                 content: SharedString::from(messages.content),
             })
             .collect();
+
+        slint_messages.reverse();
 
         let weak_ui_clone = self.weak_ui.clone();
         slint::invoke_from_event_loop(move || {
