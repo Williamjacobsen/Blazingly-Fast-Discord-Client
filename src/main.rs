@@ -106,9 +106,13 @@ fn wire_ui_events(
                     .await
                     .unwrap();
 
-                println!("Status: {}", response.status());
+                println!("Status: {}", response.status()); // TODO: Take status into account.
                 let body = response.text().await.unwrap();
                 println!("{}", body);
+
+                let messages: Vec<MessageBuffer> = serde_json::from_str(&body).unwrap();
+                println!("MessageBuffer: {:?}", messages);
+                state.set_message_buffer(messages);
             }
         });
     });
@@ -406,6 +410,24 @@ impl AppState {
         })
         .unwrap();
     }
+
+    pub fn set_message_buffer(&self, messages: Vec<MessageBuffer>) {
+        let slint_messages: Vec<MessageData> = messages
+            .into_iter()
+            .map(|messages| MessageData {
+                author: SharedString::from("TODO"),
+                content: SharedString::from(messages.content),
+            })
+            .collect();
+
+        let weak_ui_clone = self.weak_ui.clone();
+        slint::invoke_from_event_loop(move || {
+            if let Some(ui) = weak_ui_clone.upgrade() {
+                ui.set_messages(slint::ModelRc::from(slint_messages.as_slice()));
+            }
+        })
+        .unwrap();
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -458,6 +480,12 @@ impl PrivateChannel {
             self.display_name = Some(names.join(", "));
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct MessageBuffer {
+    pub id: String,
+    pub content: String,
 }
 
 fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
