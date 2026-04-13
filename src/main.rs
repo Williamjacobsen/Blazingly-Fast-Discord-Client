@@ -434,7 +434,13 @@ impl AppState {
             .into_iter()
             .map(|messages| MessageData {
                 author: SharedString::from(messages.author.display_name),
-                content: SharedString::from(messages.content),
+                content: SharedString::from(if messages._type == 0 {
+                    messages.content
+                } else if messages._type == 3 {
+                    "Voice call...".to_string()
+                } else {
+                    "Discord Client: Unhandled type...".to_string()
+                }),
             })
             .collect();
 
@@ -505,6 +511,8 @@ impl PrivateChannel {
 #[derive(Debug, Clone, Deserialize)]
 struct MessageBuffer {
     pub id: String,
+    #[serde(rename = "type")]
+    pub _type: u8,
     pub content: String,
     pub author: User,
 }
