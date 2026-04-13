@@ -437,7 +437,7 @@ impl AppState {
                 content: SharedString::from(if messages._type == 0 {
                     messages.content
                 } else if messages._type == 3 {
-                    "Voice call...".to_string()
+                    "Discord Client: Voice call...".to_string()
                 } else {
                     "Discord Client: Unhandled type...".to_string()
                 }),
