@@ -28,6 +28,8 @@ structure:
         "channel_id": "581991170817916928",
         "author": {
             "id": "545218808806375439",
+            "username": "...",
+            "global_name": "...",
         },
     },
     {
@@ -36,6 +38,8 @@ structure:
         "channel_id": "581991170817916928",
         "author": {
             "id": "545218808806375439",
+            "username": "...",
+            "global_name": "...",
         },
         "call": {
             "ended_timestamp": "2019-07-20T14:53:34.422000+00:00",
@@ -421,11 +425,15 @@ impl AppState {
         });
     }
 
-    pub fn set_message_buffer(&self, messages: Vec<MessageBuffer>) {
+    pub fn set_message_buffer(&self, mut messages: Vec<MessageBuffer>) {
+        for mut message in &mut messages {
+            message.author.compute_display_name();
+        }
+
         let mut slint_messages: Vec<MessageData> = messages
             .into_iter()
             .map(|messages| MessageData {
-                author: SharedString::from("TODO"),
+                author: SharedString::from(messages.author.display_name),
                 content: SharedString::from(messages.content),
             })
             .collect();
@@ -498,6 +506,7 @@ impl PrivateChannel {
 struct MessageBuffer {
     pub id: String,
     pub content: String,
+    pub author: User,
 }
 
 fn string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
